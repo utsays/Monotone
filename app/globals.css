@@ -778,3 +778,23 @@ table.data tr:last-child td{border-bottom:none}
 /* selected-assignee tick badge in the task modal */
 .asg-av{position:relative}
 .asg-tick{position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;box-shadow:0 0 0 2px var(--surface)}
+
+/* =====================================================================
+   COMMENTS + REMINDERS
+   ===================================================================== */
+/* due-soon date chip (amber, distinct from overdue red) */
+.date-chip.soon{color:#a5670f;background:#fbecd0}
+
+/* comment thread in the task modal */
+.cmt-wrap{display:flex;flex-direction:column;gap:12px}
+.cmt{display:flex;gap:10px}
+.cmt-body{flex:1;min-width:0}
+.cmt-head{display:flex;align-items:center;gap:8px}
+.cmt-head b{font-size:13px;font-weight:800}
+.cmt-time{font-size:11px;color:var(--ink-soft)}
+.cmt-del{margin-left:auto;border:none;background:none;color:var(--ink-soft);cursor:pointer;padding:2px 5px;border-radius:6px;display:inline-flex}
+.cmt-del:hover{color:var(--down);background:var(--surface-2)}
+.cmt-text{font-size:13px;line-height:1.45;color:var(--ink-2);margin-top:2px;white-space:pre-wrap;word-break:break-word}
+.cmt-add{display:flex;gap:8px;margin-top:4px}
+.cmt-add input{flex:1;min-width:0;padding:9px 12px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface-2);font-family:inherit;font-size:13px;color:var(--ink)}
+.cmt-add input:focus{outline:none;border-color:var(--ink);background:#fff}

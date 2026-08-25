@@ -21,13 +21,16 @@ import FilterSelect from "@/components/FilterSelect";
 import Select from "@/components/Select";
 import { ListView, TaskCalendar } from "./TaskViews";
 import { STATES, STATE_LABEL, PRIORITIES, priorityMeta, tagChip, labelColor, daysBetween, TAG_PALETTE } from "@/lib/ops";
-import type { Project, Section, Task, Subtask, Member, Tag, TaskState } from "@/lib/types";
+import type { Project, Section, Task, Subtask, Member, Tag, TaskState, TaskComment } from "@/lib/types";
 
 type ViewMode = "board" | "list" | "calendar";
 
 const UNSORTED = "__unsorted__";
 const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
 const todayStr = () => new Date().toISOString().slice(0, 10);
+const DUE_SOON_DAYS = 3;
+const soonStr = () => { const d = new Date(); d.setDate(d.getDate() + DUE_SOON_DAYS); return d.toISOString().slice(0, 10); };
+const isDueSoon = (t: Task) => t.state !== "done" && !!t.end_date && t.end_date >= todayStr() && t.end_date <= soonStr();
 const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
 const MIGRATION_SQL = `create table if not exists public.members (
@@ -90,6 +93,7 @@ function BoardInner() {
   const [copied, setCopied] = useState(false);
 
   const [editing, setEditing] = useState<Task | null>(null);
+  const [comments, setComments] = useState<TaskComment[]>([]);
   const [seed, setSeed] = useState<{ sectionId: string | null; start?: string; end?: string } | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -108,7 +112,7 @@ function BoardInner() {
   const [fTags, setFTags] = useState<string[]>([]);
   const [fStatus, setFStatus] = useState<string[]>([]);
   const [fPriority, setFPriority] = useState<string[]>([]);
-  const [quick, setQuick] = useState<"all" | "mine" | "overdue">("all");
+  const [quick, setQuick] = useState<"all" | "mine" | "soon" | "overdue">("all");
   const [myMemberId, setMyMemberId] = useState<string | null>(null);
   const [tagsOpen, setTagsOpen] = useState(false);
 
@@ -227,7 +231,23 @@ function BoardInner() {
     }
   }, [supabase]);
 
+  const loadComments = useCallback(async (taskId: string) => {
+    const { data, error } = await supabase.from("task_comments").select("*").eq("task_id", taskId).order("created_at");
+    setComments(error ? [] : ((data ?? []) as TaskComment[]));
+  }, [supabase]);
+
   useEffect(() => { ensureMe().then(loadProjects); }, [ensureMe, loadProjects]);
+
+  // Load the open task's comment thread (and keep it live).
+  useEffect(() => {
+    if (!editing?.id) { setComments([]); return; }
+    const taskId = editing.id;
+    loadComments(taskId);
+    const ch = supabase.channel(`c-${taskId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_comments", filter: `task_id=eq.${taskId}` }, () => loadComments(taskId))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [editing?.id, supabase, loadComments]);
 
   useEffect(() => {
     if (!activeProject) return;
@@ -403,6 +423,16 @@ function BoardInner() {
     await supabase.from("subtasks").update(patch).eq("id", id);
   }
   async function deleteSubtask(id: string) { setSubs((s) => s.filter((x) => x.id !== id)); await supabase.from("subtasks").delete().eq("id", id); }
+  async function addComment(taskId: string, body: string) {
+    const text = body.trim(); if (!text) return;
+    const { error } = await supabase.from("task_comments").insert({ task_id: taskId, member_id: myMemberId, body: text });
+    if (error) { if (isMissing(error)) alert("Comments need a one-time database update (supabase/upgrade-v8.sql)."); return; }
+    loadComments(taskId);
+  }
+  async function deleteComment(id: string) {
+    setComments((c) => c.filter((x) => x.id !== id));
+    await supabase.from("task_comments").delete().eq("id", id);
+  }
 
   // ---------- drag ----------
   const findContainer = (id: string) => (id in itemsRef.current ? id : Object.keys(itemsRef.current).find((k) => itemsRef.current[k].includes(id)));
@@ -475,6 +505,7 @@ function BoardInner() {
     if (fStatus.length && !fStatus.includes(t.state)) return false;
     if (fPriority.length && !fPriority.includes(t.priority ?? "none")) return false;
     if (quick === "mine" && (!myMemberId || !asg.includes(myMemberId))) return false;
+    if (quick === "soon" && !isDueSoon(t)) return false;
     if (quick === "overdue" && !(t.end_date && t.end_date < todayStr() && t.state !== "done")) return false;
     return true;
   };
@@ -535,6 +566,7 @@ function BoardInner() {
             <div className="view-toggle quick">
               <button className={quick === "all" ? "active" : ""} onClick={() => setQuick("all")}>All</button>
               <button className={quick === "mine" ? "active" : ""} onClick={() => setQuick("mine")}>Mine</button>
+              <button className={quick === "soon" ? "active" : ""} onClick={() => setQuick("soon")}>Due soon</button>
               <button className={quick === "overdue" ? "active" : ""} onClick={() => setQuick("overdue")}>Overdue</button>
             </div>
             <label className="mini-search"><Icon name="search" size={16} /><input placeholder="Search tasks" value={fText} onChange={(e) => setFText(e.target.value)} /></label>
@@ -619,7 +651,8 @@ function BoardInner() {
           defaultStart={seed?.start} defaultEnd={seed?.end}
           onClose={() => { setEditing(null); setSeed(null); }} onSave={saveTask} onDelete={editing ? () => deleteTask(editing.id) : undefined}
           onAddSubtask={addSubtask} onUpdateSubtask={updateSubtask} onDeleteSubtask={deleteSubtask}
-          onCreateTag={createTag} onDeleteTag={deleteTag} />
+          onCreateTag={createTag} onDeleteTag={deleteTag}
+          comments={comments} memberMap={memberMap} myMemberId={myMemberId} onAddComment={addComment} onDeleteComment={deleteComment} />
       )}
       {membersOpen && <MembersModal members={members} onClose={() => setMembersOpen(false)} onAdd={addMember} onRemove={removeMember} />}
       {tagsOpen && <TagManager tags={tags} onCreate={createTag} onUpdate={updateTag} onDelete={deleteTag} onClose={() => setTagsOpen(false)} />}
@@ -752,6 +785,7 @@ function CardBody({ task, memberMap, tagByName, sub, onQuickState, onDateChange,
   const assignees = (task.assignee_ids ?? (task.assignee_id ? [task.assignee_id] : [])).map((id) => memberMap[id]).filter(Boolean) as Member[];
   const done = task.state === "done";
   const overdue = !!task.end_date && task.end_date < todayStr() && !done;
+  const soon = isDueSoon(task);
   const stop = (e: React.SyntheticEvent) => { e.stopPropagation(); };
   return (
     <div className={`tcard${done ? " done" : ""}${overlay ? " overlay" : ""}`}>
@@ -781,7 +815,7 @@ function CardBody({ task, memberMap, tagByName, sub, onQuickState, onDateChange,
       <div className="tcard-foot">
         <div className="left">
           {onDateChange ? (
-            <DateChip value={task.end_date} onChange={(v) => onDateChange("end_date", v)} placeholder="＋ date" overdue={overdue} stopDrag />
+            <DateChip value={task.end_date} onChange={(v) => onDateChange("end_date", v)} placeholder="＋ date" overdue={overdue} soon={soon} stopDrag />
           ) : task.end_date ? <span className="date-chip">{fmtShort(task.end_date)}</span> : null}
           {sub.total > 0 && <span className="sub-ind"><Icon name="check" size={12} /> {sub.done}/{sub.total}</span>}
         </div>

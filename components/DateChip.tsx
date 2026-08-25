@@ -26,13 +26,14 @@ export function fmtShort(d: string) {
 }
 
 export default function DateChip({
-  value, onChange, placeholder = "Set date", className = "", overdue = false, allowClear = true, stopDrag = false,
+  value, onChange, placeholder = "Set date", className = "", overdue = false, soon = false, allowClear = true, stopDrag = false,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
   placeholder?: string;
   className?: string;
   overdue?: boolean;
+  soon?: boolean;
   allowClear?: boolean;
   stopDrag?: boolean;
 }) {
@@ -86,7 +87,7 @@ export default function DateChip({
       <button
         ref={btnRef}
         type="button"
-        className={`date-chip${value ? "" : " empty"}${overdue ? " over" : ""} ${className}`}
+        className={`date-chip${value ? "" : " empty"}${overdue ? " over" : ""}${soon && !overdue ? " soon" : ""} ${className}`}
         onClick={toggle}
         onPointerDown={stopDrag ? (e) => e.stopPropagation() : undefined}
       >
