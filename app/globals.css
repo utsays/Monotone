@@ -335,7 +335,7 @@ table.data tr:last-child td{border-bottom:none}
 .sub-progress .fill{height:100%;background:var(--accent);transition:width .2s}
 .sub-row{display:flex;align-items:center;gap:9px;padding:5px 0}
 .sub-check{width:19px;height:19px;border-radius:6px;border:1.7px solid var(--line-2);cursor:pointer;display:grid;place-items:center;flex-shrink:0;color:#fff;background:#fff}
-.sub-check.on{background:var(--accent);border-color:var(--ink)}
+.sub-check.on{background:var(--accent);border-color:var(--accent)}
 .sub-title{flex:1;border:none;background:none;font-size:13.5px;color:var(--ink);font-family:inherit;outline:none}
 .sub-title.done{text-decoration:line-through;color:var(--ink-soft)}
 .sub-del{border:none;background:none;color:var(--ink-soft);cursor:pointer;padding:2px 6px;border-radius:6px}
@@ -403,7 +403,7 @@ table.data tr:last-child td{border-bottom:none}
 .tcard .ttl{margin-bottom:0}
 .qcheck{width:18px;height:18px;border-radius:50%;border:1.7px solid var(--line-2);flex-shrink:0;cursor:pointer;display:grid;place-items:center;color:#fff;margin-top:1px;transition:.12s;background:#fff}
 .qcheck:hover{border-color:var(--ink)}
-.tcard.done .qcheck{background:var(--accent);border-color:var(--ink)}
+.tcard.done .qcheck{background:var(--accent);border-color:var(--accent)}
 .tcard.overlay{box-shadow:var(--shadow);cursor:grabbing;width:250px;transform:rotate(2deg)}
 
 /* inline state select */
@@ -469,7 +469,7 @@ table.data tr:last-child td{border-bottom:none}
 
 /* Quick-complete: box tick (not circle) */
 .qcheck{border-radius:6px}
-.qcheck.on{background:var(--accent);border-color:var(--ink);color:#fff}
+.qcheck.on{background:var(--accent);border-color:var(--accent);color:#fff}
 
 /* Assignee avatar picker (modal) */
 .assignee-pick{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -724,3 +724,46 @@ table.data tr:last-child td{border-bottom:none}
 .port-cog:hover{color:var(--ink);background:var(--surface-2)}
 .port-head h3{display:flex;align-items:center;gap:8px}
 .port-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* =====================================================================
+   TASKS v6 — themed <Select>, review-fix polish
+   ===================================================================== */
+.tsel{display:inline-flex;align-items:center;gap:7px;font-family:inherit;cursor:pointer;color:var(--ink);background:none;border:none;max-width:100%}
+.tsel-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.tsel-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tsel-caret{color:var(--ink-soft);flex-shrink:0;transition:transform .15s}
+.tsel-caret.up{transform:rotate(180deg)}
+/* inline variant — compact, for cards & list rows */
+.tsel-inline{padding:3px 6px;border-radius:7px;font-size:11px;font-weight:700;color:var(--ink-2);transition:.12s}
+.tsel-inline:hover,.tsel-inline.open{background:var(--surface-2);color:var(--ink)}
+/* field variant — for the modal, matches the other inputs */
+.tsel-field{width:100%;justify-content:space-between;padding:12px 14px;border-radius:12px;border:1px solid var(--line-2);background:var(--surface-2);font-size:14px;font-weight:600}
+.tsel-field:hover{border-color:var(--ink-soft)}
+.tsel-field.open{border-color:var(--ink);background:#fff}
+/* menu (portaled) */
+.tsel-menu{position:fixed;z-index:210;background:var(--surface);border:1px solid var(--line-2);border-radius:14px;box-shadow:var(--shadow);padding:6px;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.tsel-item{display:flex;align-items:center;gap:9px;width:100%;border:none;background:none;border-radius:9px;padding:8px 10px;font-family:inherit;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer;text-align:left}
+.tsel-item:hover{background:var(--surface-2)}
+.tsel-item.sel{color:var(--ink)}
+.tsel-check{width:18px;height:18px;flex-shrink:0;display:grid;place-items:center;color:var(--accent)}
+.tsel-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* portfolio card — single progress ring + subtitle (no duplicate bar) */
+.port-title{flex:1;min-width:0}
+.port-title h3{font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.25;display:block}
+.port-sub{display:block;font-size:11.5px;color:var(--ink-soft);font-weight:600;margin-top:3px}
+
+/* project archiving */
+.btn-ghost{display:inline-flex;align-items:center;gap:6px}
+.btn-ghost.on{border-color:var(--ink);color:var(--ink)}
+.proj-tab.ghost{background:transparent;border-style:dashed;color:var(--ink-soft);font-weight:600}
+.proj-tab.ghost.on{border-style:solid;color:var(--ink)}
+.proj-tab.archived{opacity:.72}
+.tab-badge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;background:var(--surface-2);color:var(--ink-soft);border-radius:5px;padding:1px 5px;margin-left:2px}
+.proj-tab.active .tab-badge{background:rgba(255,255,255,.24);color:#fff}
+.settings-row{display:flex;align-items:center;gap:14px;justify-content:space-between;margin-top:16px;padding:14px;border:1px solid var(--line-2);background:var(--surface-2);border-radius:14px}
+.settings-row b{display:block;font-size:13px}
+.settings-row span{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:2px;max-width:250px}
+.settings-row .btn-ghost{white-space:nowrap;flex-shrink:0}
+.port-card.archived{opacity:.72}
+.port-archived{position:absolute;top:14px;left:14px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;background:var(--surface-2);color:var(--ink-soft);border-radius:5px;padding:2px 6px;z-index:1}

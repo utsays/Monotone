@@ -30,6 +30,7 @@ function PortfolioInner() {
   const [editing, setEditing] = useState<Project | null>(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const load = useMemo(() => async () => {
     const [{ data: p, error: pe }, { data: t }, { data: s }] = await Promise.all([
@@ -63,6 +64,12 @@ function PortfolioInner() {
     await supabase.from("projects").delete().eq("id", editing.id);
     setEditing(null); await load();
   }
+  async function toggleArchive() {
+    if (!editing) return;
+    const { error } = await supabase.from("projects").update({ archived: !editing.archived }).eq("id", editing.id);
+    if (error) { alert("This needs a one-time database update (supabase/upgrade-v5.sql). Run it in the Supabase SQL editor, then try again."); return; }
+    setEditing(null); await load();
+  }
 
   if (loading) return <div className="card"><div className="empty"><p className="muted">Loading…</p></div></div>;
   if (error)
@@ -74,21 +81,29 @@ function PortfolioInner() {
       </div></div>
     );
 
+  const archivedCount = projects.filter((p) => p.archived).length;
+  const shown = projects.filter((p) => (showArchived ? true : !p.archived));
+
   return (
     <>
       <div className="port-toolbar">
+        {archivedCount > 0 && (
+          <button className={`btn-ghost btn-sm${showArchived ? " on" : ""}`} onClick={() => setShowArchived((s) => !s)}>
+            <Icon name="box" size={15} /> {showArchived ? "Hide" : "Show"} archived ({archivedCount})
+          </button>
+        )}
         <button className="btn" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> New project</button>
       </div>
 
-      {projects.length === 0 ? (
+      {shown.length === 0 ? (
         <div className="card"><div className="empty">
-          <h4>No projects yet</h4>
-          <p className="muted">Create your first project to start tracking tasks and progress.</p>
+          <h4>{projects.length === 0 ? "No projects yet" : "No active projects"}</h4>
+          <p className="muted">{projects.length === 0 ? "Create your first project to start tracking tasks and progress." : "All your projects are archived — toggle “Show archived” to see them."}</p>
           <button className="btn" style={{ marginTop: 16 }} onClick={() => setCreateOpen(true)}>+ New project</button>
         </div></div>
       ) : (
         <div className="port-grid">
-          {projects.map((p) => {
+          {shown.map((p) => {
             const pt = tasks.filter((t) => t.project_id === p.id);
             const total = pt.length;
             const done = pt.filter((t) => t.state === "done").length;
@@ -103,7 +118,8 @@ function PortfolioInner() {
             const accent = p.color ?? "var(--accent)";
 
             return (
-              <div key={p.id} className="port-card" onClick={() => router.push(`/operations?project=${p.id}`)}>
+              <div key={p.id} className={`port-card${p.archived ? " archived" : ""}`} onClick={() => router.push(`/operations?project=${p.id}`)}>
+                {p.archived && <span className="port-archived">Archived</span>}
                 <button className="port-cog" title="Project settings" onClick={(e) => { e.stopPropagation(); openSettings(p); }}>
                   <Icon name="settings" size={16} />
                 </button>
@@ -111,9 +127,11 @@ function PortfolioInner() {
                   <div className="ring" style={{ background: `conic-gradient(${accent} ${pct}%, var(--surface-2) 0)` }}>
                     <b>{pct}%</b>
                   </div>
-                  <h3><span className="port-dot" style={{ background: accent }} />{p.name}</h3>
+                  <div className="port-title">
+                    <h3>{p.name}</h3>
+                    <span className="port-sub">{done} of {total} tasks done</span>
+                  </div>
                 </div>
-                <div className="progress-line"><div className="fill" style={{ width: `${pct}%`, background: accent }} /></div>
                 <div className="port-stats">
                   <div className="port-stat"><b>{total}</b><span>Tasks</span></div>
                   <div className="port-stat"><b>{done}</b><span>Done</span></div>
@@ -156,6 +174,13 @@ function PortfolioInner() {
               </div>
             </div>
             <div className="modal-actions"><button className="btn-ghost" onClick={() => setEditing(null)}>Cancel</button><button className="btn" onClick={saveSettings} disabled={!editName.trim()}>Save</button></div>
+            <div className="settings-row">
+              <div>
+                <b>{editing.archived ? "Unarchive project" : "Archive project"}</b>
+                <span>{editing.archived ? "Bring this project back into your active list." : "Hide it from your active list without deleting anything."}</span>
+              </div>
+              <button className="btn-ghost btn-sm" onClick={toggleArchive}><Icon name="box" size={15} /> {editing.archived ? "Unarchive" : "Archive"}</button>
+            </div>
             <div className="danger-zone">
               <div><b>Delete project</b><span>Removes this project and all its sections, tasks and tags. Can’t be undone.</span></div>
               <button className="btn-danger" onClick={deleteProject}><Icon name="trash" size={15} /> Delete</button>

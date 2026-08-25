@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
 import Avatar from "@/components/Avatar";
 import DateChip from "@/components/DateChip";
+import Select from "@/components/Select";
 import { STATES, tagChip, labelColor, priorityMeta } from "@/lib/ops";
 import type { Task, Member, Tag, TaskState } from "@/lib/types";
 
@@ -57,10 +58,8 @@ export function ListView({
                     {(t.labels ?? []).map((l) => { const c = labChip(l, tagByName); return <span key={l} className="lab" style={{ background: c.bg, color: c.fg }}>{l}</span>; })}
                   </span>
                   <span className="lv-state" onClick={stop}>
-                    <span className="sd" style={{ background: STATE_DOT[t.state] }} />
-                    <select value={t.state} onChange={(e) => onQuickState(t.id, e.target.value as TaskState)}>
-                      {STATES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                    </select>
+                    <Select variant="inline" ariaLabel="Task status" value={t.state} onChange={(v) => onQuickState(t.id, v as TaskState)}
+                      options={STATES.map((s) => ({ value: s.key, label: s.label, color: STATE_DOT[s.key] }))} />
                   </span>
                   <span className="lv-date" onClick={stop}>
                     <DateChip value={t.end_date} onChange={(v) => onDateChange(t.id, "end_date", v)} placeholder="＋ date" overdue={overdue} />

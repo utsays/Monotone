@@ -18,6 +18,7 @@ import TaskModal from "./TaskModal";
 import MembersModal from "./MembersModal";
 import TagManager from "./TagManager";
 import FilterSelect from "@/components/FilterSelect";
+import Select from "@/components/Select";
 import { ListView, TaskCalendar } from "./TaskViews";
 import { STATES, STATE_LABEL, PRIORITIES, priorityMeta, tagChip, labelColor, daysBetween, TAG_PALETTE } from "@/lib/ops";
 import type { Project, Section, Task, Subtask, Member, Tag, TaskState } from "@/lib/types";
@@ -99,6 +100,7 @@ function BoardInner() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsName, setSettingsName] = useState("");
   const [settingsColor, setSettingsColor] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [view, setView] = useState<ViewMode>("board");
 
   const [fText, setFText] = useState("");
@@ -120,9 +122,31 @@ function BoardInner() {
   const memberMap = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
   const tagByName = useMemo(() => Object.fromEntries(tags.map((t) => [t.name.toLowerCase(), t])), [tags]);
   const activeProjectObj = useMemo(() => projects.find((p) => p.id === activeProject) ?? null, [projects, activeProject]);
+  const archivedCount = useMemo(() => projects.filter((p) => p.archived).length, [projects]);
+  const tabProjects = useMemo(() => projects.filter((p) => showArchived || !p.archived), [projects, showArchived]);
   const clearFilters = () => { setFText(""); setFAssignee([]); setFTags([]); setFStatus([]); setFPriority([]); setQuick("all"); };
 
+  // If the active project gets archived (and we're not showing archived), jump to a visible one.
+  useEffect(() => {
+    if (!activeProject) return;
+    const p = projects.find((x) => x.id === activeProject);
+    if (p?.archived && !showArchived) {
+      const next = projects.find((x) => !x.archived);
+      setActiveProject(next ? next.id : null);
+    }
+  }, [projects, activeProject, showArchived]);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  // When dragging a section, only collide with sibling sections (not the tasks
+  // inside them) so the horizontal sort strategy previews the shift correctly.
+  const collisionDetection = useCallback((args: Parameters<typeof closestCorners>[0]) => {
+    if (args.active.data.current?.type === "section") {
+      const sectionsOnly = args.droppableContainers.filter((c) => orderRef.current.includes(String(c.id)));
+      return closestCorners({ ...args, droppableContainers: sectionsOnly });
+    }
+    return closestCorners(args);
+  }, []);
 
   const loadProjects = useCallback(async () => {
     const { data, error } = await supabase.from("projects").select("*").order("created_at");
@@ -215,6 +239,22 @@ function BoardInner() {
     await supabase.from("projects").update({ name, color: settingsColor }).eq("id", activeProject);
     setProjects((ps) => ps.map((p) => (p.id === activeProject ? { ...p, name, color: settingsColor } : p)));
     setSettingsOpen(false);
+    await loadProjects();
+  }
+  async function archiveProject(archived: boolean) {
+    if (!activeProject) return;
+    const { error } = await supabase.from("projects").update({ archived }).eq("id", activeProject);
+    if (error) {
+      if (isMissing(error)) alert("This needs a one-time database update (supabase/upgrade-v5.sql). Run it in the Supabase SQL editor, then try again.");
+      return;
+    }
+    const remaining = projects.map((p) => (p.id === activeProject ? { ...p, archived } : p));
+    setProjects(remaining);
+    setSettingsOpen(false);
+    if (archived && !showArchived) {
+      const nextActive = remaining.find((p) => !p.archived);
+      setActiveProject(nextActive ? nextActive.id : null);
+    }
     await loadProjects();
   }
   async function deleteProject() {
@@ -328,17 +368,9 @@ function BoardInner() {
     const { active, over } = e; if (!over) return;
     const activeId = String(active.id), overId = String(over.id);
 
-    // dragging a section: reorder columns live so they shift under the cursor
-    if (activeId in itemsRef.current) {
-      const overContainer = overId in itemsRef.current ? overId : findContainer(overId);
-      if (!overContainer || overContainer === UNSORTED || overContainer === activeId) return;
-      setContainerOrder((order) => {
-        const oldI = order.indexOf(activeId), newI = order.indexOf(overContainer);
-        if (oldI < 0 || newI < 0 || oldI === newI) return order;
-        return arrayMove(order, oldI, newI);
-      });
-      return;
-    }
+    // Sections sort via the sortable strategy's transform preview (reverts on
+    // cancel); we don't mutate order here. Only tasks move between containers.
+    if (activeId in itemsRef.current) return;
 
     const from = findContainer(activeId), to = findContainer(overId);
     if (!from || !to || from === to) return;
@@ -355,8 +387,13 @@ function BoardInner() {
     if (!over) { draggingRef.current = false; return; }
     const activeId = String(active.id), overId = String(over.id);
 
-    if (activeDrag?.type === "section" || activeId in itemsRef.current) { // section reorder (already applied live in onDragOver)
-      const next = orderRef.current;
+    if (activeDrag?.type === "section" || activeId in itemsRef.current) { // section reorder — commit once on drop
+      const overSection = overId in itemsRef.current ? overId : findContainer(overId);
+      let next = orderRef.current;
+      if (overSection && overSection !== UNSORTED && overSection !== activeId) {
+        const oldI = orderRef.current.indexOf(activeId), newI = orderRef.current.indexOf(overSection);
+        if (oldI >= 0 && newI >= 0 && oldI !== newI) { next = arrayMove(orderRef.current, oldI, newI); setContainerOrder(next); }
+      }
       await Promise.all(next.map((sid, idx) => supabase.from("sections").update({ position: idx }).eq("id", sid)));
       draggingRef.current = false; if (activeProject) loadBoard(activeProject); return;
     }
@@ -420,12 +457,18 @@ function BoardInner() {
     <>
       <div className="ops-bar">
         <div className="proj-tabs">
-          {projects.map((p) => (
-            <button key={p.id} className={`proj-tab${p.id === activeProject ? " active" : ""}`} onClick={() => setActiveProject(p.id)}>
+          {tabProjects.map((p) => (
+            <button key={p.id} className={`proj-tab${p.id === activeProject ? " active" : ""}${p.archived ? " archived" : ""}`} onClick={() => setActiveProject(p.id)}>
               <span className="cdot" style={p.color ? { background: p.color } : undefined} /> {p.name}
+              {p.archived && <span className="tab-badge">Archived</span>}
             </button>
           ))}
           <button className="proj-tab" onClick={() => setNewProjectOpen(true)}>+ New project</button>
+          {archivedCount > 0 && (
+            <button className={`proj-tab ghost${showArchived ? " on" : ""}`} onClick={() => setShowArchived((s) => !s)} title="Show archived projects">
+              <Icon name="box" size={14} /> {showArchived ? "Hide" : "Show"} archived ({archivedCount})
+            </button>
+          )}
           {activeProject && (
             <button className="proj-cog" title="Project settings" onClick={() => { setSettingsName(activeProjectObj?.name ?? ""); setSettingsColor(activeProjectObj?.color ?? null); setSettingsOpen(true); }}>
               <Icon name="settings" size={16} />
@@ -478,7 +521,7 @@ function BoardInner() {
           onCreateOnDay={(day) => setSeed({ sectionId: containerOrder[0] ?? null, start: day, end: day })}
           onReschedule={rescheduleTask} />
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
           <div className="board">
             {hasUnsorted && (
               <Column id={UNSORTED} title="Unsorted" deletable={false} sortableSection={false}
@@ -555,6 +598,15 @@ function BoardInner() {
               </div>
             </div>
             <div className="modal-actions"><button className="btn-ghost" onClick={() => setSettingsOpen(false)}>Cancel</button><button className="btn" onClick={saveProjectSettings} disabled={!settingsName.trim()}>Save</button></div>
+            <div className="settings-row">
+              <div>
+                <b>{activeProjectObj?.archived ? "Unarchive project" : "Archive project"}</b>
+                <span>{activeProjectObj?.archived ? "Bring this project back into your active list." : "Hide it from your active list without deleting anything."}</span>
+              </div>
+              <button className="btn-ghost btn-sm" onClick={() => archiveProject(!activeProjectObj?.archived)}>
+                <Icon name="box" size={15} /> {activeProjectObj?.archived ? "Unarchive" : "Archive"}
+              </button>
+            </div>
             <div className="danger-zone">
               <div>
                 <b>Delete project</b>
@@ -642,7 +694,7 @@ function CardBody({ task, memberMap, tagByName, sub, onQuickState, onDateChange,
     <div className={`tcard${done ? " done" : ""}${overlay ? " overlay" : ""}`}>
       <div className="tcard-h">
         <span className={`qcheck${done ? " on" : ""}`} onPointerDown={stop} onClick={(e) => { stop(e); onQuickState?.(done ? "not_started" : "done"); }} title="Toggle complete">
-          {done && <Icon name="check" size={12} strokeWidth={3.2} />}
+          {done && <Icon name="tick" size={12} strokeWidth={3.4} />}
         </span>
         <span className="ttl">{task.title}</span>
       </div>
@@ -655,11 +707,9 @@ function CardBody({ task, memberMap, tagByName, sub, onQuickState, onDateChange,
         {(() => { const p = priorityMeta(task.priority); return p ? <span className="prio-chip" style={{ color: p.color }}><span className="pd" style={{ background: p.color }} />{p.label}</span> : null; })()}
         {est != null && <span className="est">{est}d</span>}
         {onQuickState ? (
-          <span className="state-inline" onPointerDown={stop} onClick={stop}>
-            <span className="sd" style={{ background: STATE_DOT[task.state] }} />
-            <select value={task.state} onChange={(e) => onQuickState(e.target.value as TaskState)}>
-              {STATES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
+          <span onPointerDown={stop} onClick={stop}>
+            <Select variant="inline" ariaLabel="Task status" value={task.state} onChange={(v) => onQuickState(v as TaskState)}
+              options={STATES.map((s) => ({ value: s.key, label: s.label, color: STATE_DOT[s.key] }))} />
           </span>
         ) : (
           <span className={`state ${task.state}`}><span className="sd" /> {STATE_LABEL[task.state]}</span>

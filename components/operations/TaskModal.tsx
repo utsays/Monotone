@@ -4,8 +4,11 @@ import { useState } from "react";
 import Icon from "@/components/Icon";
 import Avatar from "@/components/Avatar";
 import DateChip from "@/components/DateChip";
+import Select from "@/components/Select";
 import { STATES, PRIORITIES, tagChip, TAG_PALETTE, daysBetween } from "@/lib/ops";
 import type { Task, Section, Member, Tag, Subtask, TaskState } from "@/lib/types";
+
+const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
 
 export default function TaskModal({
   task, sections, members, tags, subtasks, defaultSectionId, defaultStart, defaultEnd,
@@ -132,14 +135,12 @@ export default function TaskModal({
 
         <div className="field-row">
           <div className="field"><label>Section</label>
-            <select value={sectionId ?? ""} onChange={(e) => setSectionId(e.target.value || null)}>
-              {sections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <Select value={sectionId ?? ""} onChange={(v) => setSectionId(v || null)}
+              options={[{ value: "", label: "No section" }, ...sections.map((s) => ({ value: s.id, label: s.name }))]} />
           </div>
           <div className="field"><label>State</label>
-            <select value={state} onChange={(e) => setState(e.target.value as TaskState)}>
-              {STATES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
+            <Select value={state} onChange={(v) => setState(v as TaskState)}
+              options={STATES.map((s) => ({ value: s.key, label: s.label, color: STATE_DOT[s.key] }))} />
           </div>
         </div>
 
@@ -161,7 +162,7 @@ export default function TaskModal({
               {subtasks.length > 0 && <div className="sub-progress"><div className="fill" style={{ width: `${pct}%` }} /></div>}
               {subtasks.map((s) => (
                 <div className="sub-row3" key={s.id}>
-                  <span className={`sub-check${s.done ? " on" : ""}`} onClick={() => onUpdateSubtask(s.id, { done: !s.done })}>{s.done && <Icon name="check" size={12} strokeWidth={3} />}</span>
+                  <span className={`sub-check${s.done ? " on" : ""}`} onClick={() => onUpdateSubtask(s.id, { done: !s.done })}>{s.done && <Icon name="tick" size={12} strokeWidth={3.2} />}</span>
                   <input className={`sub-title${s.done ? " done" : ""}`} defaultValue={s.title}
                     onBlur={(e) => e.target.value.trim() && e.target.value !== s.title && onUpdateSubtask(s.id, { title: e.target.value.trim() })} />
                   <DateChip value={s.start_date} onChange={(v) => onUpdateSubtask(s.id, { start_date: v })} placeholder="start" className="tiny" />

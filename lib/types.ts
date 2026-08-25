@@ -9,6 +9,7 @@ export type Project = {
   id: string;
   name: string;
   color: string | null;
+  archived?: boolean;
   created_at: string;
 };
 
