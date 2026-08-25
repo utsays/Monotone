@@ -123,15 +123,12 @@ function PortfolioInner() {
                 <button className="port-cog" title="Project settings" onClick={(e) => { e.stopPropagation(); openSettings(p); }}>
                   <Icon name="settings" size={16} />
                 </button>
-                <div className="port-head">
-                  <div className="ring" style={{ background: `conic-gradient(${accent} ${pct}%, var(--surface-2) 0)` }}>
-                    <b>{pct}%</b>
-                  </div>
-                  <div className="port-title">
-                    <h3>{p.name}</h3>
-                    <span className="port-sub">{done} of {total} tasks done</span>
-                  </div>
+                <div className="port-top">
+                  <h3><span className="port-dot" style={{ background: accent }} /><span className="pname">{p.name}</span></h3>
+                  <span className="port-pct" style={{ color: accent }}>{pct}%</span>
                 </div>
+                <div className="port-bar"><div className="fill" style={{ width: `${pct}%`, background: accent }} /></div>
+                <div className="port-sub">{done} of {total} tasks done</div>
                 <div className="port-stats">
                   <div className="port-stat"><b>{total}</b><span>Tasks</span></div>
                   <div className="port-stat"><b>{done}</b><span>Done</span></div>
