@@ -67,7 +67,7 @@ function PortfolioInner() {
         return (
           <div key={p.id} className="port-card" onClick={() => router.push(`/operations?project=${p.id}`)}>
             <div className="port-head">
-              <div className="ring" style={{ background: `conic-gradient(var(--ink) ${pct}%, var(--surface-2) 0)` }}>
+              <div className="ring" style={{ background: `conic-gradient(var(--accent) ${pct}%, var(--surface-2) 0)` }}>
                 <b>{pct}%</b>
               </div>
               <h3>{p.name}</h3>

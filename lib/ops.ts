@@ -2,22 +2,22 @@ import type { TaskState, Tag } from "./types";
 
 /** Fallback label colours for the well-known tags (used until a tag has its own colour). */
 export const LABEL_COLORS: Record<string, { bg: string; fg: string }> = {
-  Content: { bg: "#e4f3e9", fg: "#2f7d4f" },
-  Learn: { bg: "#dff1ee", fg: "#1f7a6b" },
-  Make: { bg: "#fde6e3", fg: "#c4483a" },
-  Website: { bg: "#fde7e7", fg: "#c33b3b" },
-  Research: { bg: "#fbeede", fg: "#b5701f" },
-  Sales: { bg: "#fbf2d6", fg: "#8a6d1f" },
-  Brand: { bg: "#f7efd6", fg: "#8a6a1a" },
-  Offer: { bg: "#e4f3e9", fg: "#2f7d4f" },
-  Design: { bg: "#ece9fb", fg: "#5b46c9" },
-  Ops: { bg: "#e9edf2", fg: "#41505f" },
+  Content: { bg: "#ffe7dd", fg: "#e64a12" },
+  Learn: { bg: "#f2f3f5", fg: "#5a5f66" },
+  Make: { bg: "#ffddca", fg: "#c4381a" },
+  Website: { bg: "#ffe7dd", fg: "#FF5A1F" },
+  Research: { bg: "#eceef0", fg: "#6b7079" },
+  Sales: { bg: "#ffe7dd", fg: "#e64a12" },
+  Brand: { bg: "#f2f3f5", fg: "#5a5f66" },
+  Offer: { bg: "#ffddca", fg: "#c4381a" },
+  Design: { bg: "#f2f3f5", fg: "#5a5f66" },
+  Ops: { bg: "#eceef0", fg: "#6b7079" },
 };
 
-/** Palette users pick from when creating a tag. */
+/** Palette users pick from when creating a tag (orange + neutrals only). */
 export const TAG_PALETTE = [
-  "#2f7d4f", "#1f7a6b", "#c4483a", "#c33b3b", "#b5701f",
-  "#8a6d1f", "#5b46c9", "#3f6ad6", "#41505f", "#b23a8b",
+  "#FF5A1F", "#e64a12", "#c4381a", "#ff7a45",
+  "#8b9099", "#6b7079", "#43464b", "#1b1c1f",
 ];
 
 export function labelColor(name: string) {
@@ -36,7 +36,7 @@ function hexToSoft(hex: string) {
 }
 
 /** Deterministic avatar colour for a member, from their name. */
-const AVATAR_COLORS = ["#17181c", "#3f6ad6", "#2f7d4f", "#b5701f", "#5b46c9", "#c4483a", "#1f7a6b", "#b23a8b"];
+const AVATAR_COLORS = ["#FF5A1F", "#e64a12", "#c4381a", "#43464b", "#1b1c1f", "#7a6a5f", "#8b9099", "#b5451f"];
 export function avatarColor(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;

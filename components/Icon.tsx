@@ -78,6 +78,32 @@ const PATHS: Record<string, JSX.Element> = {
     </>
   ),
   chevron: <path d="M6 9.5l6 6 6-6" />,
+  arrowUpRight: (
+    <>
+      <path d="M7.5 16.5 16.5 7.5" />
+      <path d="M8.5 7.5h8v8" />
+    </>
+  ),
+  pause: (
+    <>
+      <rect x="7" y="5" width="3.5" height="14" rx="1.2" fill="currentColor" stroke="none" />
+      <rect x="13.5" y="5" width="3.5" height="14" rx="1.2" fill="currentColor" stroke="none" />
+    </>
+  ),
+  stop: <rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor" stroke="none" />,
+  video: (
+    <>
+      <rect x="3" y="6" width="12" height="12" rx="2.5" />
+      <path d="M15 10l6-3v10l-6-3" />
+    </>
+  ),
+  upload: (
+    <>
+      <path d="M12 15V4" />
+      <path d="M7 9l5-5 5 5" />
+      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+    </>
+  ),
   briefcase: (
     <>
       <rect x="3" y="7" width="18" height="13" rx="2.5" />

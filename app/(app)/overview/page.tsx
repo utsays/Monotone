@@ -1,123 +1,143 @@
 import Icon from "@/components/Icon";
-import BarChart from "@/components/BarChart";
-import RadarChart from "@/components/RadarChart";
+import Avatar from "@/components/Avatar";
 
 const STATS = [
-  { icon: "users", num: "128", lbl: "Total Clients", delta: "12.0%", dir: "up" },
-  { icon: "dollar", num: "$48.2k", lbl: "Revenue (MTD)", delta: "30.9%", dir: "up", featured: true },
-  { icon: "folder", num: "24", lbl: "Open Projects", delta: "8.5%", dir: "up" },
-  { icon: "file", num: "12", lbl: "Proposals Sent", delta: "4.2%", dir: "down" },
-  { icon: "check", num: "37", lbl: "Tasks Due", delta: "10.2%", dir: "up" },
+  { lbl: "Total Projects", val: "24", delta: "5", note: "Increased from last month", featured: true },
+  { lbl: "Ended Projects", val: "10", delta: "6", note: "Increased from last month" },
+  { lbl: "Running Projects", val: "12", delta: "2", note: "Increased from last month" },
+  { lbl: "Pending Project", val: "2", note: "On Discuss" },
 ];
 
 const BARS = [
-  { label: "S", a: 1900, b: 1050 }, { label: "M", a: 1050, b: 900 },
-  { label: "T", a: 3200, b: 1900 }, { label: "W", a: 1050, b: 1050 },
-  { label: "T", a: 3150, b: 1000 }, { label: "F", a: 2500, b: 2450 },
-  { label: "S", a: 3800, b: 1800 }, { label: "S", a: 2200, b: 1950 },
-  { label: "M", a: 1950, b: 1000 }, { label: "T", a: 2100, b: 2050 },
-  { label: "W", a: 2450, b: 1150 }, { label: "T", a: 1600, b: 1200 },
-  { label: "F", a: 1500, b: 700 }, { label: "S", a: 3400, b: 2600 },
+  { d: "S", h: 44, hatch: true }, { d: "M", h: 78 }, { d: "T", h: 60, pct: 74 },
+  { d: "W", h: 92 }, { d: "T", h: 54, hatch: true }, { d: "F", h: 66, hatch: true }, { d: "S", h: 50, hatch: true },
 ];
 
-const ROWS = [
-  { name: "Brian Cook", role: "Acme Co.", code: "PRJ-1902", service: "Brand Redesign", owner: "You", value: "$12,400", status: "Active", solid: true },
-  { name: "Julia Cooper", role: "Nordwind", code: "PRJ-4513", service: "Web App Build", owner: "Alex", value: "$28,900", status: "In Review", solid: false },
-  { name: "Marcus Lee", role: "Bloom Ltd.", code: "PRJ-3320", service: "SEO Retainer", owner: "You", value: "$4,200", status: "Active", solid: true },
-  { name: "Sara Reyes", role: "Vertex", code: "PRJ-2087", service: "Content Strategy", owner: "Alex", value: "$9,600", status: "In Review", solid: false },
+const PROJECTS = [
+  { n: "Develop API Endpoints", due: "Nov 26, 2024" },
+  { n: "Onboarding Flow", due: "Nov 28, 2024" },
+  { n: "Build Dashboard", due: "Nov 30, 2024" },
+  { n: "Optimize Page Load", due: "Dec 5, 2024" },
+  { n: "Cross-Browser Testing", due: "Dec 6, 2024" },
 ];
 
-function initials(name: string) {
-  return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-}
+const TEAM = [
+  { name: "Alexandra Deff", on: "Github Project Repository", status: "Completed" },
+  { name: "Edwin Adenike", on: "Integrate User Authentication System", status: "In Progress" },
+  { name: "Isaac Oluwatemilorun", on: "Develop Search and Filter Functionality", status: "Pending" },
+  { name: "David Oshodi", on: "Responsive Layout for Homepage", status: "In Progress" },
+];
+
+const statusCls = (s: string) => (s === "Completed" ? "completed" : s === "In Progress" ? "progress" : "pending");
 
 export default function OverviewPage() {
+  const pct = 41;
+  const L = Math.PI * 80; // semicircle length
+
   return (
     <>
-      <div className="page-head">
+      <div className="dash-head">
         <div>
-          <h1>Overview</h1>
-          <p>A snapshot across your agency — sample data for now.</p>
+          <h1>Dashboard</h1>
+          <p>Plan, prioritize, and accomplish your tasks with ease.</p>
         </div>
-        <div className="pill-select">Last 15 days <Icon name="chevron" size={15} /></div>
+        <div className="dash-head-actions">
+          <button className="btn"><Icon name="plus" size={17} strokeWidth={2.4} /> Add Project</button>
+          <button className="btn-ghost"><Icon name="upload" size={16} /> Import Data</button>
+        </div>
       </div>
 
       {/* Stat cards */}
-      <div className="stat-row">
+      <div className="dstat-row">
         {STATS.map((s) => (
-          <div key={s.lbl} className={`stat${s.featured ? " featured" : ""}`}>
-            <span className="ic"><Icon name={s.icon} size={22} /></span>
-            <div className="num">{s.num}</div>
-            <div className="lbl">{s.lbl}</div>
-            <div className={`delta ${s.dir}`}>
-              <Icon name={s.dir} size={13} strokeWidth={2.2} />
-              {s.delta}
+          <div key={s.lbl} className={`dstat${s.featured ? " featured" : ""}`}>
+            <div className="dstat-top">
+              <span className="dstat-lbl">{s.lbl}</span>
+              <span className="arrow-circle"><Icon name="arrowUpRight" size={16} strokeWidth={2.2} /></span>
+            </div>
+            <div className="dstat-num">{s.val}</div>
+            <div className="dstat-delta">
+              {s.delta ? <span className="delta-pill"><Icon name="up" size={10} strokeWidth={3} />{s.delta}</span> : null}
+              <span>{s.note}</span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Charts */}
-      <div className="charts-row">
+      {/* Row 1 */}
+      <div className="dash-row">
         <div className="panel">
-          <div className="panel-head">
-            <h3>Pipeline Overview</h3>
-            <div className="pill-select">15 Days <Icon name="chevron" size={15} /></div>
+          <div className="panel-head"><h3>Project Analytics</h3></div>
+          <div className="bars">
+            {BARS.map((b, i) => (
+              <div className="bar-wrap" key={i}>
+                <div className="bar-track">
+                  {b.pct != null && <span className="bar-tip">{b.pct}%</span>}
+                  <div className={`bar${b.hatch ? " hatch" : ""}`} style={{ height: `${b.h}%` }} />
+                </div>
+                <span className="bar-day">{b.d}</span>
+              </div>
+            ))}
           </div>
-          <div className="legend2">
-            <div className="li"><span className="sw dark" /><div><b>34.2k</b><br /><span>New Leads</span></div></div>
-            <div className="li"><span className="sw gray" /><div><b>18.9k</b><br /><span>In Review</span></div></div>
-          </div>
-          <BarChart data={BARS} max={4000} />
         </div>
 
         <div className="panel">
-          <div className="panel-head">
-            <h3>Today’s Status</h3>
-            <div className="pill-select">15 Days <Icon name="chevron" size={15} /></div>
-          </div>
-          <div style={{ position: "relative" }}>
-            <span className="radar-badge" style={{ position: "absolute", top: "46%", left: "30%", zIndex: 2 }}>
-              <span className="dot" /> 12 Active
-            </span>
-            <RadarChart
-              seriesA={[0.92, 0.6, 0.78, 0.5, 0.86, 0.55, 0.72, 0.62]}
-              seriesB={[0.6, 0.82, 0.5, 0.76, 0.55, 0.72, 0.6, 0.8]}
-            />
-          </div>
-          <div className="legend2" style={{ justifyContent: "center", marginTop: 6 }}>
-            <div className="li"><span className="sw dark" /><div><b>87</b><br /><span>Won</span></div></div>
-            <div className="li"><span className="sw gray" /><div><b>30</b><br /><span>In Review</span></div></div>
-          </div>
+          <div className="panel-head"><h3>Reminders</h3></div>
+          <div className="reminder-title">Meeting with Arc Company</div>
+          <div className="reminder-time">Time : 02.00 pm - 04.00 pm</div>
+          <button className="btn btn-block" style={{ marginTop: 18 }}><Icon name="video" size={17} /> Start Meeting</button>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head"><h3>Project</h3><button className="chip-btn"><Icon name="plus" size={13} strokeWidth={2.6} /> New</button></div>
+          {PROJECTS.map((p) => (
+            <div className="pl-row" key={p.n}>
+              <span className="pl-ic"><Icon name="box" size={15} /></span>
+              <div><b>{p.n}</b><span>Due date: {p.due}</span></div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="table-card">
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Client</th><th>Code</th><th>Service</th><th>Owner</th><th>Value</th><th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ROWS.map((r) => (
-              <tr key={r.code}>
-                <td>
-                  <div className="cell-user">
-                    <div className="av">{initials(r.name)}</div>
-                    <div><b>{r.name}</b><span>{r.role}</span></div>
-                  </div>
-                </td>
-                <td><span className="code">{r.code}</span></td>
-                <td>{r.service}</td>
-                <td>{r.owner}</td>
-                <td>{r.value}</td>
-                <td><span className={`badge ${r.solid ? "solid" : "soft"}`}>{r.status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Row 2 */}
+      <div className="dash-row">
+        <div className="panel">
+          <div className="panel-head"><h3>Team Collaboration</h3><button className="chip-btn"><Icon name="plus" size={13} strokeWidth={2.6} /> Add Member</button></div>
+          {TEAM.map((m) => (
+            <div className="tc-row" key={m.name}>
+              <Avatar name={m.name} size={38} />
+              <div className="tc-info"><b>{m.name}</b><span>Working on <b>{m.on}</b></span></div>
+              <span className={`tc-badge ${statusCls(m.status)}`}>{m.status}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="panel">
+          <div className="panel-head"><h3>Project Progress</h3></div>
+          <div className="gauge">
+            <svg viewBox="0 0 200 118" className="chart-svg">
+              <path d="M20 108 A80 80 0 0 1 180 108" fill="none" stroke="var(--series-2)" strokeWidth="18" strokeLinecap="round" strokeDasharray="4 9" />
+              <path d="M20 108 A80 80 0 0 1 180 108" fill="none" stroke="url(#og)" strokeWidth="18" strokeLinecap="round" strokeDasharray={`${(pct / 100) * L} ${L}`} />
+              <defs><linearGradient id="og" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#ff7a45" /><stop offset="1" stopColor="#FF5A1F" /></linearGradient></defs>
+              <text x="100" y="96" textAnchor="middle" fontSize="30" fontWeight="800" fill="var(--ink)">{pct}%</text>
+              <text x="100" y="112" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--ink-soft)">Project Ended</text>
+            </svg>
+          </div>
+          <div className="gauge-legend">
+            <span><i className="gl solid" /> Completed</span>
+            <span><i className="gl deep" /> In Progress</span>
+            <span><i className="gl hatch" /> Pending</span>
+          </div>
+        </div>
+
+        <div className="panel time-tracker">
+          <h3>Time Tracker</h3>
+          <div className="tt-time">01:24:08</div>
+          <div className="tt-controls">
+            <button className="tt-btn"><Icon name="pause" size={18} /></button>
+            <button className="tt-btn stop"><Icon name="stop" size={16} /></button>
+          </div>
+        </div>
       </div>
     </>
   );

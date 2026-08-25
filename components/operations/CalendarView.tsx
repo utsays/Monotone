@@ -9,7 +9,7 @@ import type { Project, Task, Member } from "@/lib/types";
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const STATE_DOT: Record<string, string> = { not_started: "#c3c7cc", in_progress: "#2f7d4f", waiting: "#3f6ad6", blocked: "#e05a4d", done: "#17181c" };
+const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
 const fmtLong = (d: string) => new Date(d + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
 export default function CalendarView() {

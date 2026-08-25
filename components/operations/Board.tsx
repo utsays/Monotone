@@ -20,7 +20,7 @@ import { STATES, STATE_LABEL, tagChip, labelColor, daysBetween } from "@/lib/ops
 import type { Project, Section, Task, Subtask, Member, Tag, TaskState } from "@/lib/types";
 
 const UNSORTED = "__unsorted__";
-const STATE_DOT: Record<string, string> = { not_started: "#c3c7cc", in_progress: "#2f7d4f", waiting: "#3f6ad6", blocked: "#e05a4d", done: "#17181c" };
+const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 

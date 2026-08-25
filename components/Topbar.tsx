@@ -78,6 +78,7 @@ export default function Topbar({ email, preview }: { email: string; preview: boo
       <div className="search" ref={searchRef}>
         <Icon name="search" size={18} />
         <input placeholder="Search tasks…" value={q} onFocus={() => setSearchOpen(true)} onChange={(e) => { setQ(e.target.value); setSearchOpen(true); }} />
+        <span className="kbd">⌘F</span>
         {searchOpen && q.trim() && (
           <div className="search-results">
             {results.length === 0 ? <div className="sr-empty">No tasks match “{q.trim()}”.</div> : results.map((r) => (
@@ -92,6 +93,7 @@ export default function Topbar({ email, preview }: { email: string; preview: boo
       </div>
 
       <div className="appbar-actions">
+        <button className="icon-btn" aria-label="Messages"><Icon name="mail" size={19} /></button>
         <div ref={bellRef} style={{ position: "relative" }}>
           <button className="icon-btn" aria-label="Notifications" onClick={() => setBellOpen((o) => !o)}>
             <Icon name="bell" size={19} />
@@ -107,7 +109,7 @@ export default function Topbar({ email, preview }: { email: string; preview: boo
         <div className="user" ref={ref} onClick={() => setMenuOpen((o) => !o)}>
           <div className="who">
             <b>{name}</b>
-            <span>{preview ? "Preview mode" : "Team member"}</span>
+            <span>{preview ? "Preview mode" : email}</span>
           </div>
           <Avatar name={name} url={me?.avatar_url} color={me?.avatar_color} size={40} />
           <Icon name="chevron" size={16} />
