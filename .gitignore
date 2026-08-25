@@ -42,3 +42,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# local-only Supabase access token (never commit)
+.supabase-token

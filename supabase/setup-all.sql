@@ -10,9 +10,13 @@ create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   color text default 'slate',
+  archived boolean not null default false,
+  position int,
   created_at timestamptz default now(),
   created_by uuid default auth.uid()
 );
+alter table public.projects add column if not exists archived boolean not null default false;
+alter table public.projects add column if not exists position int;
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   project_id uuid references public.projects(id) on delete cascade,
@@ -75,6 +79,13 @@ create table if not exists public.tags (
 );
 create unique index if not exists tags_proj_name on public.tags(project_id, lower(name));
 
+create table if not exists public.task_assignees (
+  task_id   uuid references public.tasks(id)   on delete cascade,
+  member_id uuid references public.members(id) on delete cascade,
+  created_at timestamptz default now(),
+  primary key (task_id, member_id)
+);
+
 create index if not exists tasks_project_idx  on public.tasks(project_id);
 create index if not exists tasks_section_idx  on public.tasks(section_id);
 create index if not exists sections_project_idx on public.sections(project_id);
@@ -87,10 +98,11 @@ alter table public.sections enable row level security;
 alter table public.subtasks enable row level security;
 alter table public.members  enable row level security;
 alter table public.tags     enable row level security;
+alter table public.task_assignees enable row level security;
 do $$
 declare t text;
 begin
-  foreach t in array array['projects','tasks','sections','subtasks','members','tags'] loop
+  foreach t in array array['projects','tasks','sections','subtasks','members','tags','task_assignees'] loop
     execute format('drop policy if exists "team all %1$s" on public.%1$I', t);
     execute format('create policy "team all %1$s" on public.%1$I for all to authenticated using (true) with check (true)', t);
   end loop;
@@ -99,7 +111,7 @@ end $$;
 -- ---- realtime ----
 do $$ declare t text;
 begin
-  foreach t in array array['projects','tasks','sections','subtasks','members','tags'] loop
+  foreach t in array array['projects','tasks','sections','subtasks','members','tags','task_assignees'] loop
     begin execute format('alter publication supabase_realtime add table public.%I', t);
     exception when duplicate_object then null; end;
   end loop;
