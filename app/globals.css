@@ -620,3 +620,107 @@ table.data tr:last-child td{border-bottom:none}
   .dash-row{grid-template-columns:1fr}
   .dash-head h1{font-size:24px}
 }
+
+/* =====================================================================
+   TASKS v5 — project settings, themed filters, list view, view switch
+   ===================================================================== */
+/* project settings gear (sits with the project tabs) */
+.proj-cog{width:38px;height:38px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-soft);cursor:pointer;display:grid;place-items:center;transition:.15s;flex-shrink:0}
+.proj-cog:hover{color:var(--ink);background:var(--surface-2)}
+
+/* toolbar button that matches the pill filters (Members) */
+.tool-btn{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line-2);border-radius:22px;padding:8px 14px;font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer;transition:.15s;white-space:nowrap;line-height:1.2}
+.tool-btn:hover{background:var(--surface-2);color:var(--ink)}
+
+/* themed filter dropdown (replaces native <select>) */
+.filter-select{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line-2);border-radius:22px;padding:8px 12px;font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer;transition:.15s;white-space:nowrap;max-width:210px;line-height:1.2}
+.filter-select:hover{background:var(--surface-2)}
+.filter-select.on{border-color:var(--ink);color:var(--ink)}
+.filter-select .fs-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filter-select .fs-caret{color:var(--ink-soft);transition:transform .15s;flex-shrink:0}
+.filter-select .fs-caret.up{transform:rotate(180deg)}
+.filter-menu{position:fixed;z-index:200;background:var(--surface);border:1px solid var(--line-2);border-radius:14px;box-shadow:var(--shadow);padding:6px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.fm-item{display:flex;align-items:center;gap:9px;width:100%;border:none;background:none;border-radius:9px;padding:8px 10px;font-family:inherit;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer;text-align:left}
+.fm-item:hover{background:var(--surface-2)}
+.fm-item.sel{color:var(--ink)}
+.fm-check{width:18px;height:18px;flex-shrink:0;display:grid;place-items:center;color:var(--accent)}
+.fm-check.box{border:1.7px solid var(--line-2);border-radius:6px;background:#fff;color:#fff}
+.fm-check.box.on{background:var(--accent);border-color:var(--ink)}
+.fm-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.fm-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fm-empty{padding:10px;font-size:12.5px;color:var(--ink-soft)}
+.fm-clear{margin-top:2px;border:none;background:var(--surface-2);border-radius:9px;padding:8px;font-family:inherit;font-weight:700;font-size:12px;color:var(--ink-soft);cursor:pointer}
+.fm-clear:hover{background:#e6e8ea}
+
+/* List view */
+.list-view{display:flex;flex-direction:column;gap:18px}
+.lv-group-head{display:flex;align-items:center;gap:9px;margin-bottom:8px;padding:0 4px}
+.lv-group-head .nm{font-weight:800;font-size:13.5px}
+.lv-group-head .cnt{background:var(--surface-2);border-radius:20px;min-width:22px;height:22px;display:grid;place-items:center;font-size:11.5px;font-weight:800;color:var(--ink-soft);padding:0 6px}
+.lv-rows{display:flex;flex-direction:column;gap:2px}
+.lv-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto 150px 128px 30px;align-items:center;gap:12px;background:var(--surface);border:1px solid transparent;border-radius:12px;padding:10px 14px;cursor:pointer;box-shadow:var(--shadow-sm);transition:.12s}
+.lv-row:hover{border-color:var(--line-2)}
+.lv-row.done{opacity:.6}
+.lv-row .qcheck{margin-top:0}
+.lv-title{font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lv-tags{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}
+.lv-state{display:inline-flex;align-items:center;gap:6px}
+.lv-state .sd{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.lv-state select{border:none;background:none;font-family:inherit;font-size:12px;font-weight:700;color:var(--ink-2);cursor:pointer;-webkit-appearance:none;appearance:none;padding:0}
+.lv-state select:focus{outline:none}
+.lv-date{justify-self:start}
+.lv-asg{justify-self:end}
+@media(max-width:820px){.lv-row{grid-template-columns:20px minmax(0,1fr) auto 30px}.lv-state,.lv-date{display:none}}
+
+/* Danger zone (project settings) */
+.danger-zone{display:flex;align-items:center;gap:14px;justify-content:space-between;margin-top:22px;padding:14px;border:1px solid #f2c6bd;background:#fdf1ef;border-radius:14px}
+.danger-zone b{display:block;font-size:13px;color:var(--down)}
+.danger-zone span{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:2px;max-width:230px}
+.btn-danger{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+
+/* quick-view chips reuse .view-toggle */
+.view-toggle.quick button{padding:7px 12px}
+
+/* priority — segmented control (modal), chip (card), dot (list) */
+.prio-pick{display:flex;gap:6px;flex-wrap:wrap}
+.prio-opt{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface-2);border-radius:10px;padding:8px 13px;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;transition:.12s}
+.prio-opt:hover{color:var(--ink)}
+.prio-opt.on{background:var(--surface);color:var(--ink);border-color:var(--ink)}
+.prio-opt .pd{width:8px;height:8px;border-radius:50%}
+.prio-chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;letter-spacing:.02em}
+.prio-chip .pd{width:7px;height:7px;border-radius:50%}
+.prio-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:middle;flex-shrink:0}
+
+/* list-view add-task */
+.lv-add{width:100%;border:1px dashed var(--line-2);background:transparent;border-radius:10px;padding:9px;font-family:inherit;font-weight:700;font-size:12.5px;color:var(--ink-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;transition:.12s}
+.lv-add:hover{background:var(--surface);color:var(--ink)}
+
+/* calendar — add button + drag/drop */
+.cal-date{display:flex;align-items:center;justify-content:space-between}
+.cal-add{width:20px;height:20px;border-radius:6px;border:none;background:transparent;color:var(--ink-soft);cursor:pointer;display:grid;place-items:center;opacity:0;transition:.12s}
+.cal-cell:hover .cal-add{opacity:1}
+.cal-add:hover{background:var(--surface-2);color:var(--ink)}
+.cal-cell.drop{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+.cal-task[draggable="true"]{cursor:grab}
+.cal-task[draggable="true"]:active{cursor:grabbing}
+
+/* Tag manager */
+.tagmgr-list{display:flex;flex-direction:column;gap:8px;max-height:44vh;overflow-y:auto}
+.tagmgr-row{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:10px}
+.tagmgr-row .lab{justify-self:start}
+.tagmgr-name{border:1px solid var(--line-2);border-radius:9px;padding:7px 10px;font-family:inherit;font-size:13px;background:var(--surface-2);color:var(--ink);min-width:0}
+.tagmgr-name:focus{outline:none;border-color:var(--ink);background:#fff}
+.tagmgr-create{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.tagmgr-create input{flex:1;min-width:130px;border:1px solid var(--line-2);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13px;background:var(--surface-2);color:var(--ink)}
+.tagmgr-create input:focus{outline:none;border-color:var(--ink);background:#fff}
+.sw.none{background:#fff;border:1px solid var(--line-2);position:relative;overflow:hidden}
+.sw.none::after{content:"";position:absolute;left:1px;right:1px;top:50%;height:2px;background:var(--down);transform:rotate(-45deg)}
+
+/* Projects portfolio — toolbar, card settings, colour dot */
+.port-toolbar{display:flex;justify-content:flex-end;margin-bottom:16px}
+.port-card{position:relative}
+.port-cog{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:9px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-soft);cursor:pointer;display:grid;place-items:center;opacity:0;transition:.12s;z-index:1}
+.port-card:hover .port-cog{opacity:1}
+.port-cog:hover{color:var(--ink);background:var(--surface-2)}
+.port-head h3{display:flex;align-items:center;gap:8px}
+.port-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}

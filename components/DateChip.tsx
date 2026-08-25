@@ -1,10 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Icon from "./Icon";
 
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const POP_W = 232;
+const POP_H = 300;
+const GAP = 6;
+/** Place the popover anchored to the trigger, flipping above when there's no room below. */
+function computePos(btn: HTMLElement) {
+  const r = btn.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - r.bottom;
+  const top = spaceBelow < POP_H + GAP && r.top > spaceBelow
+    ? Math.max(GAP, r.top - POP_H - GAP)          // flip above
+    : r.bottom + GAP;                              // default: below
+  const left = Math.max(GAP, Math.min(r.left, window.innerWidth - POP_W - GAP));
+  return { top, left };
+}
 export function fmtShort(d: string) {
   const dt = new Date(d + "T00:00:00");
   return `${dt.getDate()} ${dt.toLocaleDateString(undefined, { month: "short" })}`;
@@ -40,13 +55,22 @@ export default function DateChip({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
+  // Reposition on scroll/resize so the popover stays anchored to its chip.
+  useEffect(() => {
+    if (!open) return;
+    const reposition = () => btnRef.current && setPos(computePos(btnRef.current));
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open]);
+
   function toggle(e: React.MouseEvent) {
     e.stopPropagation();
     if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect();
-      const top = Math.min(r.bottom + 6, window.innerHeight - 300);
-      const left = Math.min(r.left, window.innerWidth - 250);
-      setPos({ top, left });
+      setPos(computePos(btnRef.current));
       if (value) { const b = new Date(value + "T00:00:00"); setCursor({ y: b.getFullYear(), m: b.getMonth() }); }
     }
     setOpen((o) => !o);
@@ -69,8 +93,8 @@ export default function DateChip({
         {value ? fmtShort(value) : placeholder}
       </button>
 
-      {open && (
-        <div ref={popRef} className="date-pop" style={{ top: pos.top, left: pos.left }} onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+      {open && createPortal(
+        <div ref={popRef} className="date-pop" style={{ top: pos.top, left: pos.left, width: POP_W }} onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
           <div className="date-pop-head">
             <button className="nav-b sm" onClick={() => setCursor((c) => { const d = new Date(c.y, c.m - 1, 1); return { y: d.getFullYear(), m: d.getMonth() }; })}><Icon name="chevronLeft" size={15} /></button>
             <b>{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</b>
@@ -88,7 +112,8 @@ export default function DateChip({
             })}
           </div>
           {allowClear && value && <button className="date-clear" onClick={() => { onChange(null); setOpen(false); }}>Clear</button>}
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

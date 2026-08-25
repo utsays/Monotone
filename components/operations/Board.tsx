@@ -16,8 +16,13 @@ import Avatar from "@/components/Avatar";
 import DateChip, { fmtShort } from "@/components/DateChip";
 import TaskModal from "./TaskModal";
 import MembersModal from "./MembersModal";
-import { STATES, STATE_LABEL, tagChip, labelColor, daysBetween } from "@/lib/ops";
+import TagManager from "./TagManager";
+import FilterSelect from "@/components/FilterSelect";
+import { ListView, TaskCalendar } from "./TaskViews";
+import { STATES, STATE_LABEL, PRIORITIES, priorityMeta, tagChip, labelColor, daysBetween, TAG_PALETTE } from "@/lib/ops";
 import type { Project, Section, Task, Subtask, Member, Tag, TaskState } from "@/lib/types";
+
+type ViewMode = "board" | "list" | "calendar";
 
 const UNSORTED = "__unsorted__";
 const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
@@ -84,17 +89,26 @@ function BoardInner() {
   const [copied, setCopied] = useState(false);
 
   const [editing, setEditing] = useState<Task | null>(null);
-  const [creating, setCreating] = useState<string | null>(null);
+  const [seed, setSeed] = useState<{ sectionId: string | null; start?: string; end?: string } | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [membersOpen, setMembersOpen] = useState(false);
   const [addingSection, setAddingSection] = useState(false);
   const [sectionName, setSectionName] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsName, setSettingsName] = useState("");
+  const [settingsColor, setSettingsColor] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>("board");
 
   const [fText, setFText] = useState("");
-  const [fAssignee, setFAssignee] = useState("");
-  const [fTag, setFTag] = useState("");
+  const [fAssignee, setFAssignee] = useState<string[]>([]);
+  const [fTags, setFTags] = useState<string[]>([]);
+  const [fStatus, setFStatus] = useState<string[]>([]);
+  const [fPriority, setFPriority] = useState<string[]>([]);
+  const [quick, setQuick] = useState<"all" | "mine" | "overdue">("all");
+  const [myMemberId, setMyMemberId] = useState<string | null>(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
 
   const [activeDrag, setActiveDrag] = useState<{ id: string; type: "task" | "section" } | null>(null);
   const draggingRef = useRef(false);
@@ -102,9 +116,11 @@ function BoardInner() {
   const itemsRef = useRef(items); itemsRef.current = items;
   const orderRef = useRef(containerOrder); orderRef.current = containerOrder;
 
-  const filterActive = !!(fText || fAssignee || fTag);
+  const filterActive = !!(fText || fAssignee.length || fTags.length || fStatus.length || fPriority.length || quick !== "all");
   const memberMap = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
   const tagByName = useMemo(() => Object.fromEntries(tags.map((t) => [t.name.toLowerCase(), t])), [tags]);
+  const activeProjectObj = useMemo(() => projects.find((p) => p.id === activeProject) ?? null, [projects, activeProject]);
+  const clearFilters = () => { setFText(""); setFAssignee([]); setFTags([]); setFStatus([]); setFPriority([]); setQuick("all"); };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -157,12 +173,16 @@ function BoardInner() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: byId } = await supabase.from("members").select("id").eq("user_id", user.id).maybeSingle();
-    if (byId) return;
+    if (byId) { setMyMemberId(byId.id); return; }
     const byEmail = user.email ? (await supabase.from("members").select("id,user_id").eq("email", user.email).maybeSingle()).data : null;
     if (byEmail && !byEmail.user_id) {
       await supabase.from("members").update({ user_id: user.id }).eq("id", byEmail.id);
-    } else if (!byEmail) {
-      await supabase.from("members").insert({ name: (user.email ?? "me").split("@")[0], email: user.email, user_id: user.id });
+      setMyMemberId(byEmail.id);
+    } else if (byEmail) {
+      setMyMemberId(byEmail.id);
+    } else {
+      const { data: created } = await supabase.from("members").insert({ name: (user.email ?? "me").split("@")[0], email: user.email, user_id: user.id }).select("id").single();
+      if (created) setMyMemberId(created.id);
     }
   }, [supabase]);
 
@@ -189,6 +209,25 @@ function BoardInner() {
     setProjectName(""); setNewProjectOpen(false); await loadProjects();
     if (data) setActiveProject((data as Project).id);
   }
+  async function saveProjectSettings() {
+    const name = settingsName.trim();
+    if (!name || !activeProject) return;
+    await supabase.from("projects").update({ name, color: settingsColor }).eq("id", activeProject);
+    setProjects((ps) => ps.map((p) => (p.id === activeProject ? { ...p, name, color: settingsColor } : p)));
+    setSettingsOpen(false);
+    await loadProjects();
+  }
+  async function deleteProject() {
+    if (!activeProject) return;
+    const name = activeProjectObj?.name ?? "this project";
+    if (!confirm(`Delete "${name}"? All its sections, tasks and tags will be permanently removed. This cannot be undone.`)) return;
+    await supabase.from("projects").delete().eq("id", activeProject);
+    const remaining = projects.filter((p) => p.id !== activeProject);
+    setSettingsOpen(false);
+    setProjects(remaining);
+    setActiveProject(remaining.length ? remaining[0].id : null);
+    await loadProjects();
+  }
   async function addSection() {
     const name = sectionName.trim(); if (!name || !activeProject) return;
     const pos = containerOrder.length;
@@ -207,11 +246,11 @@ function BoardInner() {
   }
   async function saveTask(form: Partial<Task>) {
     const payload = { title: form.title, description: form.description || null, section_id: form.section_id ?? null,
-      state: form.state, labels: form.labels ?? [], assignee_id: form.assignee_id ?? null,
+      state: form.state, labels: form.labels ?? [], assignee_id: form.assignee_id ?? null, priority: form.priority ?? "none",
       start_date: form.start_date || null, end_date: form.end_date || null };
     if (form.id) await supabase.from("tasks").update(payload).eq("id", form.id);
     else await supabase.from("tasks").insert({ ...payload, project_id: activeProject, position: Date.now() });
-    setEditing(null); setCreating(null);
+    setEditing(null); setSeed(null);
     if (activeProject) loadBoard(activeProject);
   }
   async function deleteTask(id: string) { setEditing(null); await supabase.from("tasks").delete().eq("id", id); if (activeProject) loadBoard(activeProject); }
@@ -223,6 +262,19 @@ function BoardInner() {
     setTaskMap((m) => ({ ...m, [id]: { ...m[id], [field]: value } }));
     await supabase.from("tasks").update({ [field]: value }).eq("id", id);
   }
+  async function rescheduleTask(id: string, dayIso: string) {
+    const t = taskMap[id]; if (!t) return;
+    const dayMs = Date.parse(dayIso + "T00:00:00Z");
+    let start = t.start_date, end: string | null = dayIso;
+    if (t.start_date && t.end_date) {
+      const span = (Date.parse(t.end_date + "T00:00:00Z") - Date.parse(t.start_date + "T00:00:00Z")) / 86400000;
+      start = new Date(dayMs - span * 86400000).toISOString().slice(0, 10);
+    } else {
+      start = t.start_date ?? dayIso;
+    }
+    setTaskMap((m) => ({ ...m, [id]: { ...m[id], start_date: start, end_date: end } }));
+    await supabase.from("tasks").update({ start_date: start, end_date: end }).eq("id", id);
+  }
   async function addMember(name: string, email: string) {
     await supabase.from("members").insert({ name, email: email || null });
     if (activeProject) loadBoard(activeProject);
@@ -233,7 +285,30 @@ function BoardInner() {
     await supabase.from("tags").insert({ project_id: activeProject, name, color });
     loadBoard(activeProject);
   }
-  async function deleteTag(id: string) { await supabase.from("tags").delete().eq("id", id); if (activeProject) loadBoard(activeProject); }
+  async function deleteTag(id: string) {
+    const tag = tags.find((t) => t.id === id);
+    await supabase.from("tags").delete().eq("id", id);
+    // strip the now-orphaned label from every task that carried it
+    if (tag && activeProject) {
+      const affected = Object.values(taskMap).filter((t) => (t.labels ?? []).includes(tag.name));
+      await Promise.all(affected.map((t) =>
+        supabase.from("tasks").update({ labels: (t.labels ?? []).filter((l) => l !== tag.name) }).eq("id", t.id)));
+      setFTags((f) => f.filter((x) => x !== tag.name));
+    }
+    if (activeProject) loadBoard(activeProject);
+  }
+  async function updateTag(id: string, patch: { name?: string; color?: string }) {
+    const tag = tags.find((t) => t.id === id);
+    await supabase.from("tags").update(patch).eq("id", id);
+    // if renamed, carry the change onto every task using the old label
+    if (tag && patch.name && patch.name !== tag.name && activeProject) {
+      const affected = Object.values(taskMap).filter((t) => (t.labels ?? []).includes(tag.name));
+      await Promise.all(affected.map((t) =>
+        supabase.from("tasks").update({ labels: (t.labels ?? []).map((l) => (l === tag.name ? patch.name! : l)) }).eq("id", t.id)));
+      setFTags((f) => f.map((x) => (x === tag.name ? patch.name! : x)));
+    }
+    if (activeProject) loadBoard(activeProject);
+  }
   async function addSubtask(taskId: string, title: string) { await supabase.from("subtasks").insert({ task_id: taskId, title, position: Date.now() }); if (activeProject) loadBoard(activeProject); }
   async function updateSubtask(id: string, patch: Partial<Subtask>) {
     setSubs((s) => s.map((x) => (x.id === id ? { ...x, ...patch } : x)));
@@ -252,7 +327,19 @@ function BoardInner() {
   function onDragOver(e: DragOverEvent) {
     const { active, over } = e; if (!over) return;
     const activeId = String(active.id), overId = String(over.id);
-    if (activeId in itemsRef.current) return; // dragging a section
+
+    // dragging a section: reorder columns live so they shift under the cursor
+    if (activeId in itemsRef.current) {
+      const overContainer = overId in itemsRef.current ? overId : findContainer(overId);
+      if (!overContainer || overContainer === UNSORTED || overContainer === activeId) return;
+      setContainerOrder((order) => {
+        const oldI = order.indexOf(activeId), newI = order.indexOf(overContainer);
+        if (oldI < 0 || newI < 0 || oldI === newI) return order;
+        return arrayMove(order, oldI, newI);
+      });
+      return;
+    }
+
     const from = findContainer(activeId), to = findContainer(overId);
     if (!from || !to || from === to) return;
     setItems((prev) => {
@@ -268,16 +355,9 @@ function BoardInner() {
     if (!over) { draggingRef.current = false; return; }
     const activeId = String(active.id), overId = String(over.id);
 
-    if (activeDrag?.type === "section" || activeId in itemsRef.current) { // section reorder
-      const overContainer = overId in itemsRef.current ? overId : findContainer(overId);
-      if (overContainer && overContainer !== UNSORTED && overContainer !== activeId) {
-        const oldI = orderRef.current.indexOf(activeId), newI = orderRef.current.indexOf(overContainer);
-        if (oldI >= 0 && newI >= 0) {
-          const next = arrayMove(orderRef.current, oldI, newI);
-          setContainerOrder(next);
-          await Promise.all(next.map((sid, idx) => supabase.from("sections").update({ position: idx }).eq("id", sid)));
-        }
-      }
+    if (activeDrag?.type === "section" || activeId in itemsRef.current) { // section reorder (already applied live in onDragOver)
+      const next = orderRef.current;
+      await Promise.all(next.map((sid, idx) => supabase.from("sections").update({ position: idx }).eq("id", sid)));
       draggingRef.current = false; if (activeProject) loadBoard(activeProject); return;
     }
 
@@ -299,9 +379,17 @@ function BoardInner() {
   const subCount = (taskId: string) => { const s = subs.filter((x) => x.task_id === taskId); return { total: s.length, done: s.filter((x) => x.done).length }; };
   const visible = (id: string) => {
     const t = taskMap[id]; if (!t) return false;
-    if (fText && !t.title.toLowerCase().includes(fText.toLowerCase())) return false;
-    if (fAssignee && t.assignee_id !== fAssignee) return false;
-    if (fTag && !(t.labels ?? []).includes(fTag)) return false;
+    if (fText) {
+      const q = fText.toLowerCase();
+      const hay = `${t.title} ${t.description ?? ""} ${(t.labels ?? []).join(" ")}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (fAssignee.length && (!t.assignee_id || !fAssignee.includes(t.assignee_id))) return false;
+    if (fTags.length && !(t.labels ?? []).some((l) => fTags.includes(l))) return false;
+    if (fStatus.length && !fStatus.includes(t.state)) return false;
+    if (fPriority.length && !fPriority.includes(t.priority ?? "none")) return false;
+    if (quick === "mine" && (!myMemberId || t.assignee_id !== myMemberId)) return false;
+    if (quick === "overdue" && !(t.end_date && t.end_date < todayStr() && t.state !== "done")) return false;
     return true;
   };
 
@@ -321,38 +409,74 @@ function BoardInner() {
   const hasUnsorted = (items[UNSORTED]?.length ?? 0) > 0;
   const editingSubs = editing ? subs.filter((s) => s.task_id === editing.id) : [];
 
+  const orderedSections = containerOrder.map((id) => sectionMap[id]).filter(Boolean) as Section[];
+  const listGroups = [
+    ...(hasUnsorted ? [{ id: UNSORTED, name: "Unsorted" }] : []),
+    ...orderedSections.map((s) => ({ id: s.id, name: s.name })),
+  ].map((g) => ({ ...g, tasks: (items[g.id] ?? []).filter(visible).map((id) => taskMap[id]).filter(Boolean) as Task[] }));
+  const allVisibleTasks = Object.values(taskMap).filter((t) => visible(t.id));
+
   return (
     <>
       <div className="ops-bar">
         <div className="proj-tabs">
           {projects.map((p) => (
             <button key={p.id} className={`proj-tab${p.id === activeProject ? " active" : ""}`} onClick={() => setActiveProject(p.id)}>
-              <span className="cdot" /> {p.name}
+              <span className="cdot" style={p.color ? { background: p.color } : undefined} /> {p.name}
             </button>
           ))}
           <button className="proj-tab" onClick={() => setNewProjectOpen(true)}>+ New project</button>
+          {activeProject && (
+            <button className="proj-cog" title="Project settings" onClick={() => { setSettingsName(activeProjectObj?.name ?? ""); setSettingsColor(activeProjectObj?.color ?? null); setSettingsOpen(true); }}>
+              <Icon name="settings" size={16} />
+            </button>
+          )}
         </div>
         {activeProject && (
           <div className="ops-tools">
+            <div className="view-toggle">
+              <button className={view === "board" ? "active" : ""} onClick={() => setView("board")}><Icon name="grid" size={15} /> Board</button>
+              <button className={view === "list" ? "active" : ""} onClick={() => setView("list")}><Icon name="list" size={15} /> List</button>
+              <button className={view === "calendar" ? "active" : ""} onClick={() => setView("calendar")}><Icon name="calendar" size={15} /> Calendar</button>
+            </div>
+            <div className="view-toggle quick">
+              <button className={quick === "all" ? "active" : ""} onClick={() => setQuick("all")}>All</button>
+              <button className={quick === "mine" ? "active" : ""} onClick={() => setQuick("mine")}>Mine</button>
+              <button className={quick === "overdue" ? "active" : ""} onClick={() => setQuick("overdue")}>Overdue</button>
+            </div>
             <label className="mini-search"><Icon name="search" size={16} /><input placeholder="Search tasks" value={fText} onChange={(e) => setFText(e.target.value)} /></label>
-            <select className="mini-filter" value={fAssignee} onChange={(e) => setFAssignee(e.target.value)}>
-              <option value="">All assignees</option>
-              {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-            <select className="mini-filter" value={fTag} onChange={(e) => setFTag(e.target.value)}>
-              <option value="">All tags</option>
-              {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-            </select>
-            <button className="btn-ghost btn-sm" onClick={() => setMembersOpen(true)}><Icon name="users" size={16} /> Members</button>
+            <FilterSelect label="All assignees" icon="users" value={fAssignee} onChange={setFAssignee}
+              options={members.map((m) => ({ value: m.id, label: m.name }))} />
+            <FilterSelect label="All tags" multi value={fTags} onChange={setFTags}
+              options={tags.map((t) => ({ value: t.name, label: t.name, color: tagChip(t).fg }))} />
+            <FilterSelect label="Status" multi value={fStatus} onChange={setFStatus}
+              options={STATES.map((s) => ({ value: s.key, label: s.label }))} />
+            <FilterSelect label="Priority" multi value={fPriority} onChange={setFPriority}
+              options={PRIORITIES.map((p) => ({ value: p.key, label: p.label, color: p.color }))} />
+            <button className="tool-btn" onClick={() => setTagsOpen(true)}><Icon name="tag" size={16} /> Tags</button>
+            <button className="tool-btn" onClick={() => setMembersOpen(true)}><Icon name="users" size={16} /> Members</button>
           </div>
         )}
       </div>
 
-      {filterActive && <div className="filter-note">Drag reordering is paused while filtering. <span className="mini-link" onClick={() => { setFText(""); setFAssignee(""); setFTag(""); }}>Clear filters</span></div>}
+      {filterActive && (
+        <div className="filter-note">
+          {view === "board" ? "Drag reordering is paused while filtering." : "Filters applied."}
+          <span className="mini-link" onClick={clearFilters}>Clear filters</span>
+        </div>
+      )}
 
       {projects.length === 0 ? (
         <div className="card"><div className="empty"><h4>Create your first project</h4><p className="muted">Group tasks into sections like a Trello board.</p>
           <button className="btn" style={{ marginTop: 16 }} onClick={() => setNewProjectOpen(true)}>+ New project</button></div></div>
+      ) : view === "list" ? (
+        <ListView groups={listGroups} memberMap={memberMap} tagByName={tagByName}
+          onOpenTask={setEditing} onQuickState={quickState} onDateChange={updateTaskDate}
+          onAddTask={(sectionId) => setSeed({ sectionId })} />
+      ) : view === "calendar" ? (
+        <TaskCalendar tasks={allVisibleTasks} onOpenTask={setEditing}
+          onCreateOnDay={(day) => setSeed({ sectionId: containerOrder[0] ?? null, start: day, end: day })}
+          onReschedule={rescheduleTask} />
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
           <div className="board">
@@ -368,7 +492,7 @@ function BoardInner() {
                   <Column key={cid} id={cid} title={sec.name} deletable sortableSection
                     taskIds={(items[cid] ?? []).filter(visible)} {...{ taskMap, memberMap, tagByName, subCount, filterActive }}
                     renaming={renamingId === cid} onStartRename={() => setRenamingId(cid)} onRename={(v) => renameSection(cid, v)} onCancelRename={() => setRenamingId(null)}
-                    onDelete={() => deleteSection(cid)} onOpenTask={setEditing} onQuickState={quickState} onAddTask={() => setCreating(cid)} onDateChange={updateTaskDate} />
+                    onDelete={() => deleteSection(cid)} onOpenTask={setEditing} onQuickState={quickState} onAddTask={() => setSeed({ sectionId: cid })} onDateChange={updateTaskDate} />
                 );
               })}
             </SortableContext>
@@ -395,15 +519,17 @@ function BoardInner() {
         </DndContext>
       )}
 
-      {(editing || creating) && (
+      {(editing || seed) && (
         <TaskModal task={editing} sections={containerOrder.map((id) => sectionMap[id]).filter(Boolean) as Section[]}
           members={members} tags={tags} subtasks={editingSubs}
-          defaultSectionId={creating ?? editing?.section_id ?? (containerOrder[0] ?? null)}
-          onClose={() => { setEditing(null); setCreating(null); }} onSave={saveTask} onDelete={editing ? () => deleteTask(editing.id) : undefined}
+          defaultSectionId={seed ? (seed.sectionId === UNSORTED ? null : seed.sectionId) : (editing?.section_id ?? (containerOrder[0] ?? null))}
+          defaultStart={seed?.start} defaultEnd={seed?.end}
+          onClose={() => { setEditing(null); setSeed(null); }} onSave={saveTask} onDelete={editing ? () => deleteTask(editing.id) : undefined}
           onAddSubtask={addSubtask} onUpdateSubtask={updateSubtask} onDeleteSubtask={deleteSubtask}
           onCreateTag={createTag} onDeleteTag={deleteTag} />
       )}
       {membersOpen && <MembersModal members={members} onClose={() => setMembersOpen(false)} onAdd={addMember} onRemove={removeMember} />}
+      {tagsOpen && <TagManager tags={tags} onCreate={createTag} onUpdate={updateTag} onDelete={deleteTag} onClose={() => setTagsOpen(false)} />}
       {newProjectOpen && (
         <div className="modal-bg" onClick={() => setNewProjectOpen(false)}>
           <div className="modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
@@ -411,6 +537,31 @@ function BoardInner() {
             <div className="field"><label>Project name</label>
               <input autoFocus value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. Agency Launch" onKeyDown={(e) => e.key === "Enter" && createProject()} /></div>
             <div className="modal-actions"><button className="btn-ghost" onClick={() => setNewProjectOpen(false)}>Cancel</button><button className="btn" onClick={createProject}>Create</button></div>
+          </div>
+        </div>
+      )}
+      {settingsOpen && (
+        <div className="modal-bg" onClick={() => setSettingsOpen(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Project settings</h3><button className="x-btn" onClick={() => setSettingsOpen(false)}>✕</button></div>
+            <div className="field"><label>Project name</label>
+              <input autoFocus value={settingsName} onChange={(e) => setSettingsName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveProjectSettings()} /></div>
+            <div className="field"><label>Colour</label>
+              <div className="swatches">
+                <span className={`sw none${settingsColor ? "" : " on"}`} title="No colour" onClick={() => setSettingsColor(null)} />
+                {TAG_PALETTE.map((col) => (
+                  <span key={col} className={`sw${settingsColor === col ? " on" : ""}`} style={{ background: col }} onClick={() => setSettingsColor(col)} />
+                ))}
+              </div>
+            </div>
+            <div className="modal-actions"><button className="btn-ghost" onClick={() => setSettingsOpen(false)}>Cancel</button><button className="btn" onClick={saveProjectSettings} disabled={!settingsName.trim()}>Save</button></div>
+            <div className="danger-zone">
+              <div>
+                <b>Delete project</b>
+                <span>Removes this project and all its sections, tasks and tags. Can’t be undone.</span>
+              </div>
+              <button className="btn-danger" onClick={deleteProject}><Icon name="trash" size={15} /> Delete</button>
+            </div>
           </div>
         </div>
       )}
@@ -501,6 +652,7 @@ function CardBody({ task, memberMap, tagByName, sub, onQuickState, onDateChange,
         </div>
       )}
       <div className="metaline">
+        {(() => { const p = priorityMeta(task.priority); return p ? <span className="prio-chip" style={{ color: p.color }}><span className="pd" style={{ background: p.color }} />{p.label}</span> : null; })()}
         {est != null && <span className="est">{est}d</span>}
         {onQuickState ? (
           <span className="state-inline" onPointerDown={stop} onClick={stop}>
