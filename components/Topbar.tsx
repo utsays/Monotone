@@ -93,7 +93,6 @@ export default function Topbar({ email, preview }: { email: string; preview: boo
       </div>
 
       <div className="appbar-actions">
-        <button className="icon-btn" aria-label="Messages"><Icon name="mail" size={19} /></button>
         <div ref={bellRef} style={{ position: "relative" }}>
           <button className="icon-btn" aria-label="Notifications" onClick={() => setBellOpen((o) => !o)}>
             <Icon name="bell" size={19} />

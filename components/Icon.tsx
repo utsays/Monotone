@@ -91,6 +91,7 @@ const PATHS: Record<string, JSX.Element> = {
     </>
   ),
   stop: <rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor" stroke="none" />,
+  play: <path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none" />,
   video: (
     <>
       <rect x="3" y="6" width="12" height="12" rx="2.5" />
