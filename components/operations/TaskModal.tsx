@@ -36,7 +36,7 @@ export default function TaskModal({
   const [description, setDescription] = useState(task?.description ?? "");
   const [sectionId, setSectionId] = useState<string | null>(task?.section_id ?? defaultSectionId);
   const [state, setState] = useState<TaskState>(task?.state ?? "not_started");
-  const [assigneeId, setAssigneeId] = useState<string | null>(task?.assignee_id ?? null);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(task?.assignee_ids ?? (task?.assignee_id ? [task.assignee_id] : []));
   const [labels, setLabels] = useState<string[]>(task?.labels ?? []);
   const [priority, setPriority] = useState<string>(task?.priority ?? "none");
   const [start, setStart] = useState<string | null>(task?.start_date ?? defaultStart ?? null);
@@ -52,6 +52,9 @@ export default function TaskModal({
   function toggleTag(name: string) {
     setLabels((cur) => (cur.includes(name) ? cur.filter((x) => x !== name) : [...cur, name]));
   }
+  function toggleAssignee(id: string) {
+    setAssigneeIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  }
   function createTag() {
     const n = newTag.trim();
     if (!n) return;
@@ -65,7 +68,7 @@ export default function TaskModal({
     if (!start || !end) return setErr("Pick a start date and an end date.");
     if (end < start) return setErr("End date can’t be before the start date.");
     onSave({ id: task?.id, title: title.trim(), description, section_id: sectionId, state,
-      assignee_id: assigneeId, labels, priority, start_date: start, end_date: end });
+      assignee_ids: assigneeIds, labels, priority, start_date: start, end_date: end });
   }
 
   const doneCt = subtasks.filter((s) => s.done).length;
@@ -106,14 +109,15 @@ export default function TaskModal({
           </div>
         </div>
 
-        {/* Assignee avatars */}
+        {/* Assignees (multiple) */}
         <div className="field">
-          <label>Assignee</label>
+          <label>Assignees {assigneeIds.length > 0 && `· ${assigneeIds.length}`}</label>
           <div className="assignee-pick">
-            <button type="button" className={`asg-none${assigneeId ? "" : " sel"}`} onClick={() => setAssigneeId(null)} title="Unassigned"><Icon name="users" size={16} /></button>
+            <button type="button" className={`asg-none${assigneeIds.length === 0 ? " sel" : ""}`} onClick={() => setAssigneeIds([])} title="Unassigned"><Icon name="users" size={16} /></button>
             {active.map((m) => (
-              <button type="button" key={m.id} className={`asg-av${assigneeId === m.id ? " sel" : ""}`} onClick={() => setAssigneeId(m.id)} title={m.name}>
+              <button type="button" key={m.id} className={`asg-av${assigneeIds.includes(m.id) ? " sel" : ""}`} onClick={() => toggleAssignee(m.id)} title={m.name}>
                 <Avatar name={m.name} url={m.avatar_url} color={m.avatar_color} size={30} />
+                {assigneeIds.includes(m.id) && <span className="asg-tick"><Icon name="tick" size={11} strokeWidth={3.4} /></span>}
               </button>
             ))}
             {active.length === 0 && <span className="muted" style={{ fontSize: 12.5 }}>Add people in the Team tab.</span>}

@@ -12,7 +12,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import Icon from "@/components/Icon";
-import Avatar from "@/components/Avatar";
+import AvatarStack from "@/components/AvatarStack";
 import DateChip, { fmtShort } from "@/components/DateChip";
 import TaskModal from "./TaskModal";
 import MembersModal from "./MembersModal";
@@ -115,6 +115,7 @@ function BoardInner() {
   const [activeDrag, setActiveDrag] = useState<{ id: string; type: "task" | "section" } | null>(null);
   const draggingRef = useRef(false);
   const openedTaskRef = useRef<string | null>(null);
+  const warnedAssignees = useRef(false);
   const itemsRef = useRef(items); itemsRef.current = items;
   const orderRef = useRef(containerOrder); orderRef.current = containerOrder;
 
@@ -167,8 +168,22 @@ function BoardInner() {
     if ((tks.error && isMissing(tks.error)) || (mem.error && isMissing(mem.error))) { setSetupNeeded(true); return; }
     const sections = (secs.data ?? []) as Section[];
     const tasks = (tks.data ?? []) as Task[];
+    const ids = tasks.map((t) => t.id);
+
+    // Multiple assignees (join table); fall back to the legacy single assignee.
+    const assigneesByTask: Record<string, string[]> = {};
+    if (ids.length) {
+      const { data: ta, error: taErr } = await supabase.from("task_assignees").select("task_id, member_id").in("task_id", ids);
+      if (!taErr && ta) (ta as { task_id: string; member_id: string }[]).forEach((r) => { (assigneesByTask[r.task_id] ??= []).push(r.member_id); });
+    }
+    const withAssignees = tasks.map((t) => {
+      const joined = assigneesByTask[t.id] ?? [];
+      const merged = t.assignee_id && !joined.includes(t.assignee_id) ? [t.assignee_id, ...joined] : joined;
+      return { ...t, assignee_ids: merged };
+    });
+
     setSectionMap(Object.fromEntries(sections.map((s) => [s.id, s])));
-    setTaskMap(Object.fromEntries(tasks.map((t) => [t.id, t])));
+    setTaskMap(Object.fromEntries(withAssignees.map((t) => [t.id, t])));
     setMembers((mem.data ?? []) as Member[]);
     setTags((tg.data ?? []) as Tag[]);
     const order = sections.map((s) => s.id);
@@ -177,13 +192,12 @@ function BoardInner() {
     order.forEach((id) => (it[id] = []));
     tasks.forEach((t) => { const c = t.section_id && it[t.section_id] ? t.section_id : UNSORTED; it[c].push(t.id); });
     setItems(it);
-    const ids = tasks.map((t) => t.id);
     if (ids.length) { const { data: st } = await supabase.from("subtasks").select("*").in("task_id", ids).order("position"); setSubs((st ?? []) as Subtask[]); }
     else setSubs([]);
     if (typeof window !== "undefined") {
       const urlTask = new URLSearchParams(window.location.search).get("task");
       if (urlTask && openedTaskRef.current !== urlTask) {
-        const t = tasks.find((x) => x.id === urlTask);
+        const t = withAssignees.find((x) => x.id === urlTask);
         if (t) {
           openedTaskRef.current = urlTask;
           setEditing(t);
@@ -222,6 +236,7 @@ function BoardInner() {
       .on("postgres_changes", { event: "*", schema: "public", table: "members", filter: `project_id=eq.${activeProject}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "tags", filter: `project_id=eq.${activeProject}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "subtasks" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_assignees" }, reload)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [activeProject, supabase, loadBoard]);
@@ -284,12 +299,26 @@ function BoardInner() {
     await supabase.from("sections").delete().eq("id", id);
     if (activeProject) loadBoard(activeProject);
   }
+  async function syncAssignees(taskId: string, memberIds: string[]) {
+    const del = await supabase.from("task_assignees").delete().eq("task_id", taskId);
+    if (del.error) {
+      if (isMissing(del.error) && !warnedAssignees.current) {
+        warnedAssignees.current = true;
+        alert("Assigning more than one person needs a one-time database update (supabase/upgrade-v6.sql). Run it in the Supabase SQL editor. The task saved with the first assignee for now.");
+      }
+      return;
+    }
+    if (memberIds.length) await supabase.from("task_assignees").insert(memberIds.map((member_id) => ({ task_id: taskId, member_id })));
+  }
   async function saveTask(form: Partial<Task>) {
+    const memberIds = form.assignee_ids ?? (form.assignee_id ? [form.assignee_id] : []);
     const payload = { title: form.title, description: form.description || null, section_id: form.section_id ?? null,
-      state: form.state, labels: form.labels ?? [], assignee_id: form.assignee_id ?? null, priority: form.priority ?? "none",
+      state: form.state, labels: form.labels ?? [], assignee_id: memberIds[0] ?? null, priority: form.priority ?? "none",
       start_date: form.start_date || null, end_date: form.end_date || null };
+    let taskId = form.id ?? null;
     if (form.id) await supabase.from("tasks").update(payload).eq("id", form.id);
-    else await supabase.from("tasks").insert({ ...payload, project_id: activeProject, position: Date.now() });
+    else { const { data } = await supabase.from("tasks").insert({ ...payload, project_id: activeProject, position: Date.now() }).select("id").single(); taskId = (data as { id: string } | null)?.id ?? null; }
+    if (taskId) await syncAssignees(taskId, memberIds);
     setEditing(null); setSeed(null);
     if (activeProject) loadBoard(activeProject);
   }
@@ -421,11 +450,12 @@ function BoardInner() {
       const hay = `${t.title} ${t.description ?? ""} ${(t.labels ?? []).join(" ")}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
-    if (fAssignee.length && (!t.assignee_id || !fAssignee.includes(t.assignee_id))) return false;
+    const asg = t.assignee_ids ?? (t.assignee_id ? [t.assignee_id] : []);
+    if (fAssignee.length && !asg.some((a) => fAssignee.includes(a))) return false;
     if (fTags.length && !(t.labels ?? []).some((l) => fTags.includes(l))) return false;
     if (fStatus.length && !fStatus.includes(t.state)) return false;
     if (fPriority.length && !fPriority.includes(t.priority ?? "none")) return false;
-    if (quick === "mine" && (!myMemberId || t.assignee_id !== myMemberId)) return false;
+    if (quick === "mine" && (!myMemberId || !asg.includes(myMemberId))) return false;
     if (quick === "overdue" && !(t.end_date && t.end_date < todayStr() && t.state !== "done")) return false;
     return true;
   };
@@ -686,7 +716,7 @@ function CardBody({ task, memberMap, tagByName, sub, onQuickState, onDateChange,
   onQuickState?: (s: TaskState) => void; onDateChange?: (field: "start_date" | "end_date", value: string | null) => void; overlay?: boolean;
 }) {
   const est = daysBetween(task.start_date, task.end_date);
-  const assignee = task.assignee_id ? memberMap[task.assignee_id] : null;
+  const assignees = (task.assignee_ids ?? (task.assignee_id ? [task.assignee_id] : [])).map((id) => memberMap[id]).filter(Boolean) as Member[];
   const done = task.state === "done";
   const overdue = !!task.end_date && task.end_date < todayStr() && !done;
   const stop = (e: React.SyntheticEvent) => { e.stopPropagation(); };
@@ -722,7 +752,7 @@ function CardBody({ task, memberMap, tagByName, sub, onQuickState, onDateChange,
           ) : task.end_date ? <span className="date-chip">{fmtShort(task.end_date)}</span> : null}
           {sub.total > 0 && <span className="sub-ind"><Icon name="check" size={12} /> {sub.done}/{sub.total}</span>}
         </div>
-        {assignee && <Avatar name={assignee.name} url={assignee.avatar_url} color={assignee.avatar_color} size={26} />}
+        <AvatarStack members={assignees} size={26} />
       </div>
     </div>
   );

@@ -51,6 +51,8 @@ export type Task = {
   state: TaskState;
   labels: string[];
   assignee_id: string | null;
+  /** Full set of assignees (from the task_assignees join table). Includes assignee_id. */
+  assignee_ids?: string[];
   start_date: string | null;
   end_date: string | null;
   position: number;

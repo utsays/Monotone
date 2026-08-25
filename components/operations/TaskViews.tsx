@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
-import Avatar from "@/components/Avatar";
+import AvatarStack from "@/components/AvatarStack";
 import DateChip from "@/components/DateChip";
 import Select from "@/components/Select";
 import { STATES, tagChip, labelColor, priorityMeta } from "@/lib/ops";
@@ -41,7 +41,7 @@ export function ListView({
           <div className="lv-rows">
             {g.tasks.map((t) => {
               const done = t.state === "done";
-              const assignee = t.assignee_id ? memberMap[t.assignee_id] : null;
+              const assignees = (t.assignee_ids ?? (t.assignee_id ? [t.assignee_id] : [])).map((id) => memberMap[id]).filter(Boolean) as Member[];
               const overdue = !!t.end_date && t.end_date < todayStr() && !done;
               const prio = priorityMeta(t.priority);
               const stop = (e: React.SyntheticEvent) => e.stopPropagation();
@@ -64,7 +64,7 @@ export function ListView({
                   <span className="lv-date" onClick={stop}>
                     <DateChip value={t.end_date} onChange={(v) => onDateChange(t.id, "end_date", v)} placeholder="＋ date" overdue={overdue} />
                   </span>
-                  <span className="lv-asg">{assignee && <Avatar name={assignee.name} url={assignee.avatar_url} color={assignee.avatar_color} size={26} />}</span>
+                  <span className="lv-asg"><AvatarStack members={assignees} size={26} /></span>
                 </div>
               );
             })}
