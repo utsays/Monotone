@@ -5,6 +5,7 @@ import Icon from "@/components/Icon";
 import Avatar from "@/components/Avatar";
 import DateChip from "@/components/DateChip";
 import Select from "@/components/Select";
+import MentionInput, { renderMentions } from "@/components/MentionInput";
 import { STATES, PRIORITIES, tagChip, TAG_PALETTE, daysBetween } from "@/lib/ops";
 import type { Task, Section, Member, Tag, Subtask, TaskState, TaskComment } from "@/lib/types";
 
@@ -99,8 +100,8 @@ export default function TaskModal({
   const tagByName: Record<string, Tag> = Object.fromEntries(tags.map((t) => [t.name.toLowerCase(), t]));
 
   return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="drawer-bg" onClick={onClose}>
+      <div className="drawer" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head"><h3>{task ? "Edit task" : "New task"}</h3><button className="x-btn" onClick={onClose}>✕</button></div>
 
         {err && <div className="form-msg err">{err}</div>}
@@ -227,14 +228,13 @@ export default function TaskModal({
                           <button className="cmt-del" title="Delete comment" onClick={() => onDeleteComment(c.id)}><Icon name="trash" size={13} /></button>
                         )}
                       </div>
-                      <p className="cmt-text">{c.body}</p>
+                      <p className="cmt-text">{renderMentions(c.body, members)}</p>
                     </div>
                   </div>
                 );
               })}
               <div className="cmt-add">
-                <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Write a comment…"
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendComment(); } }} />
+                <MentionInput value={newComment} onChange={setNewComment} onSubmit={sendComment} members={members} placeholder="Write a comment…  @ to mention" />
                 <button className="btn btn-sm" onClick={sendComment} disabled={!newComment.trim()}>Send</button>
               </div>
             </div>
