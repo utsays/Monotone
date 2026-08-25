@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
-  DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCorners,
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCorners, closestCenter,
   type DragStartEvent, type DragOverEvent, type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -116,6 +116,7 @@ function BoardInner() {
   const draggingRef = useRef(false);
   const openedTaskRef = useRef<string | null>(null);
   const warnedAssignees = useRef(false);
+  const warnedOrder = useRef(false);
   const itemsRef = useRef(items); itemsRef.current = items;
   const orderRef = useRef(containerOrder); orderRef.current = containerOrder;
 
@@ -152,9 +153,11 @@ function BoardInner() {
   const loadProjects = useCallback(async () => {
     const { data, error } = await supabase.from("projects").select("*").order("created_at");
     if (error) { if (isMissing(error)) setSetupNeeded(true); setLoading(false); return; }
-    setProjects(data as Project[]);
+    // Order by saved position when present (stable created_at fallback for un-migrated rows).
+    const sorted = (data as Project[]).slice().sort((a, b) => (a.position ?? 1e9) - (b.position ?? 1e9));
+    setProjects(sorted);
     const urlPid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("project") : null;
-    setActiveProject((cur) => cur ?? urlPid ?? (data.length ? (data[0] as Project).id : null));
+    setActiveProject((cur) => cur ?? urlPid ?? (sorted.length ? sorted[0].id : null));
     setLoading(false);
   }, [supabase]);
 
@@ -255,6 +258,22 @@ function BoardInner() {
     setProjects((ps) => ps.map((p) => (p.id === activeProject ? { ...p, name, color: settingsColor } : p)));
     setSettingsOpen(false);
     await loadProjects();
+  }
+  async function reorderProjects(next: Project[]) {
+    setProjects(next); // optimistic
+    const results = await Promise.all(next.map((p, i) => supabase.from("projects").update({ position: i }).eq("id", p.id)));
+    if (results.some((r) => r.error && isMissing(r.error)) && !warnedOrder.current) {
+      warnedOrder.current = true;
+      alert("Reordering projects needs a one-time database update (supabase/upgrade-v7.sql). Run it in the Supabase SQL editor to make the new order stick.");
+    }
+  }
+  function onTabsDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldI = projects.findIndex((p) => p.id === active.id);
+    const newI = projects.findIndex((p) => p.id === over.id);
+    if (oldI < 0 || newI < 0) return;
+    reorderProjects(arrayMove(projects, oldI, newI));
   }
   async function archiveProject(archived: boolean) {
     if (!activeProject) return;
@@ -487,12 +506,13 @@ function BoardInner() {
     <>
       <div className="ops-bar">
         <div className="proj-tabs">
-          {tabProjects.map((p) => (
-            <button key={p.id} className={`proj-tab${p.id === activeProject ? " active" : ""}${p.archived ? " archived" : ""}`} onClick={() => setActiveProject(p.id)}>
-              <span className="cdot" style={p.color ? { background: p.color } : undefined} /> {p.name}
-              {p.archived && <span className="tab-badge">Archived</span>}
-            </button>
-          ))}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onTabsDragEnd}>
+            <SortableContext items={tabProjects.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
+              {tabProjects.map((p) => (
+                <SortableProjectTab key={p.id} p={p} active={p.id === activeProject} onSelect={() => setActiveProject(p.id)} />
+              ))}
+            </SortableContext>
+          </DndContext>
           <button className="proj-tab" onClick={() => setNewProjectOpen(true)}>+ New project</button>
           {archivedCount > 0 && (
             <button className={`proj-tab ghost${showArchived ? " on" : ""}`} onClick={() => setShowArchived((s) => !s)} title="Show archived projects">
@@ -648,6 +668,19 @@ function BoardInner() {
         </div>
       )}
     </>
+  );
+}
+
+// ---------------- Sortable project tab ----------------
+function SortableProjectTab({ p, active, onSelect }: { p: Project; active: boolean; onSelect: () => void }) {
+  const sortable = useSortable({ id: p.id });
+  const style = { transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition, opacity: sortable.isDragging ? 0.5 : 1, touchAction: "none" as const };
+  return (
+    <button ref={sortable.setNodeRef} style={style} {...sortable.attributes} {...sortable.listeners}
+      className={`proj-tab${active ? " active" : ""}${p.archived ? " archived" : ""}`} onClick={onSelect} title="Drag to reorder">
+      <span className="cdot" style={p.color ? { background: p.color } : undefined} /> {p.name}
+      {p.archived && <span className="tab-badge">Archived</span>}
+    </button>
   );
 }
 

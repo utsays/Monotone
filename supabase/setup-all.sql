@@ -11,10 +11,12 @@ create table if not exists public.projects (
   name text not null,
   color text default 'slate',
   archived boolean not null default false,
+  position int,
   created_at timestamptz default now(),
   created_by uuid default auth.uid()
 );
 alter table public.projects add column if not exists archived boolean not null default false;
+alter table public.projects add column if not exists position int;
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   project_id uuid references public.projects(id) on delete cascade,

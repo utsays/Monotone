@@ -39,7 +39,7 @@ function PortfolioInner() {
       supabase.from("sections").select("id,project_id"),
     ]);
     if (pe) { setError(true); setLoading(false); return; }
-    setProjects((p ?? []) as Project[]);
+    setProjects(((p ?? []) as Project[]).slice().sort((a, b) => (a.position ?? 1e9) - (b.position ?? 1e9)));
     setTasks((t ?? []) as Task[]);
     setSections((s ?? []) as Section[]);
     setLoading(false);
