@@ -130,7 +130,8 @@ export function TaskCalendar({
               </div>
               {dayTasks.slice(0, 3).map((t) => (
                 <div key={t.id} className="cal-task" title={t.title} draggable
-                  onDragStart={() => setDragId(t.id)} onDragEnd={() => { setDragId(null); setOverDay(null); }}
+                  onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", t.id); setDragId(t.id); }}
+                  onDragEnd={() => { setDragId(null); setOverDay(null); }}
                   onClick={() => onOpenTask(t)}>
                   <span className="cbar" style={{ background: STATE_DOT[t.state] ?? "#c3c7cc" }} />
                   {t.title}
