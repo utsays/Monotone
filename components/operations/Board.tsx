@@ -16,8 +16,12 @@ import Avatar from "@/components/Avatar";
 import DateChip, { fmtShort } from "@/components/DateChip";
 import TaskModal from "./TaskModal";
 import MembersModal from "./MembersModal";
+import FilterSelect from "@/components/FilterSelect";
+import { ListView, TaskCalendar } from "./TaskViews";
 import { STATES, STATE_LABEL, tagChip, labelColor, daysBetween } from "@/lib/ops";
 import type { Project, Section, Task, Subtask, Member, Tag, TaskState } from "@/lib/types";
+
+type ViewMode = "board" | "list" | "calendar";
 
 const UNSORTED = "__unsorted__";
 const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
@@ -91,10 +95,13 @@ function BoardInner() {
   const [addingSection, setAddingSection] = useState(false);
   const [sectionName, setSectionName] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsName, setSettingsName] = useState("");
+  const [view, setView] = useState<ViewMode>("board");
 
   const [fText, setFText] = useState("");
-  const [fAssignee, setFAssignee] = useState("");
-  const [fTag, setFTag] = useState("");
+  const [fAssignee, setFAssignee] = useState<string[]>([]);
+  const [fTags, setFTags] = useState<string[]>([]);
 
   const [activeDrag, setActiveDrag] = useState<{ id: string; type: "task" | "section" } | null>(null);
   const draggingRef = useRef(false);
@@ -102,9 +109,11 @@ function BoardInner() {
   const itemsRef = useRef(items); itemsRef.current = items;
   const orderRef = useRef(containerOrder); orderRef.current = containerOrder;
 
-  const filterActive = !!(fText || fAssignee || fTag);
+  const filterActive = !!(fText || fAssignee.length || fTags.length);
   const memberMap = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
   const tagByName = useMemo(() => Object.fromEntries(tags.map((t) => [t.name.toLowerCase(), t])), [tags]);
+  const activeProjectObj = useMemo(() => projects.find((p) => p.id === activeProject) ?? null, [projects, activeProject]);
+  const clearFilters = () => { setFText(""); setFAssignee([]); setFTags([]); };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -189,6 +198,24 @@ function BoardInner() {
     setProjectName(""); setNewProjectOpen(false); await loadProjects();
     if (data) setActiveProject((data as Project).id);
   }
+  async function renameProject() {
+    const name = settingsName.trim();
+    if (!name || !activeProject) return;
+    await supabase.from("projects").update({ name }).eq("id", activeProject);
+    setSettingsOpen(false);
+    await loadProjects();
+  }
+  async function deleteProject() {
+    if (!activeProject) return;
+    const name = activeProjectObj?.name ?? "this project";
+    if (!confirm(`Delete "${name}"? All its sections, tasks and tags will be permanently removed. This cannot be undone.`)) return;
+    await supabase.from("projects").delete().eq("id", activeProject);
+    const remaining = projects.filter((p) => p.id !== activeProject);
+    setSettingsOpen(false);
+    setProjects(remaining);
+    setActiveProject(remaining.length ? remaining[0].id : null);
+    await loadProjects();
+  }
   async function addSection() {
     const name = sectionName.trim(); if (!name || !activeProject) return;
     const pos = containerOrder.length;
@@ -252,7 +279,19 @@ function BoardInner() {
   function onDragOver(e: DragOverEvent) {
     const { active, over } = e; if (!over) return;
     const activeId = String(active.id), overId = String(over.id);
-    if (activeId in itemsRef.current) return; // dragging a section
+
+    // dragging a section: reorder columns live so they shift under the cursor
+    if (activeId in itemsRef.current) {
+      const overContainer = overId in itemsRef.current ? overId : findContainer(overId);
+      if (!overContainer || overContainer === UNSORTED || overContainer === activeId) return;
+      setContainerOrder((order) => {
+        const oldI = order.indexOf(activeId), newI = order.indexOf(overContainer);
+        if (oldI < 0 || newI < 0 || oldI === newI) return order;
+        return arrayMove(order, oldI, newI);
+      });
+      return;
+    }
+
     const from = findContainer(activeId), to = findContainer(overId);
     if (!from || !to || from === to) return;
     setItems((prev) => {
@@ -268,16 +307,9 @@ function BoardInner() {
     if (!over) { draggingRef.current = false; return; }
     const activeId = String(active.id), overId = String(over.id);
 
-    if (activeDrag?.type === "section" || activeId in itemsRef.current) { // section reorder
-      const overContainer = overId in itemsRef.current ? overId : findContainer(overId);
-      if (overContainer && overContainer !== UNSORTED && overContainer !== activeId) {
-        const oldI = orderRef.current.indexOf(activeId), newI = orderRef.current.indexOf(overContainer);
-        if (oldI >= 0 && newI >= 0) {
-          const next = arrayMove(orderRef.current, oldI, newI);
-          setContainerOrder(next);
-          await Promise.all(next.map((sid, idx) => supabase.from("sections").update({ position: idx }).eq("id", sid)));
-        }
-      }
+    if (activeDrag?.type === "section" || activeId in itemsRef.current) { // section reorder (already applied live in onDragOver)
+      const next = orderRef.current;
+      await Promise.all(next.map((sid, idx) => supabase.from("sections").update({ position: idx }).eq("id", sid)));
       draggingRef.current = false; if (activeProject) loadBoard(activeProject); return;
     }
 
@@ -300,8 +332,8 @@ function BoardInner() {
   const visible = (id: string) => {
     const t = taskMap[id]; if (!t) return false;
     if (fText && !t.title.toLowerCase().includes(fText.toLowerCase())) return false;
-    if (fAssignee && t.assignee_id !== fAssignee) return false;
-    if (fTag && !(t.labels ?? []).includes(fTag)) return false;
+    if (fAssignee.length && (!t.assignee_id || !fAssignee.includes(t.assignee_id))) return false;
+    if (fTags.length && !(t.labels ?? []).some((l) => fTags.includes(l))) return false;
     return true;
   };
 
@@ -321,6 +353,13 @@ function BoardInner() {
   const hasUnsorted = (items[UNSORTED]?.length ?? 0) > 0;
   const editingSubs = editing ? subs.filter((s) => s.task_id === editing.id) : [];
 
+  const orderedSections = containerOrder.map((id) => sectionMap[id]).filter(Boolean) as Section[];
+  const listGroups = [
+    ...(hasUnsorted ? [{ id: UNSORTED, name: "Unsorted" }] : []),
+    ...orderedSections.map((s) => ({ id: s.id, name: s.name })),
+  ].map((g) => ({ ...g, tasks: (items[g.id] ?? []).filter(visible).map((id) => taskMap[id]).filter(Boolean) as Task[] }));
+  const allVisibleTasks = Object.values(taskMap).filter((t) => visible(t.id));
+
   return (
     <>
       <div className="ops-bar">
@@ -331,28 +370,44 @@ function BoardInner() {
             </button>
           ))}
           <button className="proj-tab" onClick={() => setNewProjectOpen(true)}>+ New project</button>
+          {activeProject && (
+            <button className="proj-cog" title="Project settings" onClick={() => { setSettingsName(activeProjectObj?.name ?? ""); setSettingsOpen(true); }}>
+              <Icon name="settings" size={16} />
+            </button>
+          )}
         </div>
         {activeProject && (
           <div className="ops-tools">
+            <div className="view-toggle">
+              <button className={view === "board" ? "active" : ""} onClick={() => setView("board")}><Icon name="grid" size={15} /> Board</button>
+              <button className={view === "list" ? "active" : ""} onClick={() => setView("list")}><Icon name="list" size={15} /> List</button>
+              <button className={view === "calendar" ? "active" : ""} onClick={() => setView("calendar")}><Icon name="calendar" size={15} /> Calendar</button>
+            </div>
             <label className="mini-search"><Icon name="search" size={16} /><input placeholder="Search tasks" value={fText} onChange={(e) => setFText(e.target.value)} /></label>
-            <select className="mini-filter" value={fAssignee} onChange={(e) => setFAssignee(e.target.value)}>
-              <option value="">All assignees</option>
-              {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-            <select className="mini-filter" value={fTag} onChange={(e) => setFTag(e.target.value)}>
-              <option value="">All tags</option>
-              {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-            </select>
-            <button className="btn-ghost btn-sm" onClick={() => setMembersOpen(true)}><Icon name="users" size={16} /> Members</button>
+            <FilterSelect label="All assignees" icon="users" value={fAssignee} onChange={setFAssignee}
+              options={members.map((m) => ({ value: m.id, label: m.name }))} />
+            <FilterSelect label="All tags" multi value={fTags} onChange={setFTags}
+              options={tags.map((t) => ({ value: t.name, label: t.name, color: tagChip(t).fg }))} />
+            <button className="tool-btn" onClick={() => setMembersOpen(true)}><Icon name="users" size={16} /> Members</button>
           </div>
         )}
       </div>
 
-      {filterActive && <div className="filter-note">Drag reordering is paused while filtering. <span className="mini-link" onClick={() => { setFText(""); setFAssignee(""); setFTag(""); }}>Clear filters</span></div>}
+      {filterActive && (
+        <div className="filter-note">
+          {view === "board" ? "Drag reordering is paused while filtering." : "Filters applied."}
+          <span className="mini-link" onClick={clearFilters}>Clear filters</span>
+        </div>
+      )}
 
       {projects.length === 0 ? (
         <div className="card"><div className="empty"><h4>Create your first project</h4><p className="muted">Group tasks into sections like a Trello board.</p>
           <button className="btn" style={{ marginTop: 16 }} onClick={() => setNewProjectOpen(true)}>+ New project</button></div></div>
+      ) : view === "list" ? (
+        <ListView groups={listGroups} memberMap={memberMap} tagByName={tagByName}
+          onOpenTask={setEditing} onQuickState={quickState} onDateChange={updateTaskDate} />
+      ) : view === "calendar" ? (
+        <TaskCalendar tasks={allVisibleTasks} memberMap={memberMap} tagByName={tagByName} onOpenTask={setEditing} />
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
           <div className="board">
@@ -411,6 +466,23 @@ function BoardInner() {
             <div className="field"><label>Project name</label>
               <input autoFocus value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. Agency Launch" onKeyDown={(e) => e.key === "Enter" && createProject()} /></div>
             <div className="modal-actions"><button className="btn-ghost" onClick={() => setNewProjectOpen(false)}>Cancel</button><button className="btn" onClick={createProject}>Create</button></div>
+          </div>
+        </div>
+      )}
+      {settingsOpen && (
+        <div className="modal-bg" onClick={() => setSettingsOpen(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Project settings</h3><button className="x-btn" onClick={() => setSettingsOpen(false)}>✕</button></div>
+            <div className="field"><label>Project name</label>
+              <input autoFocus value={settingsName} onChange={(e) => setSettingsName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && renameProject()} /></div>
+            <div className="modal-actions"><button className="btn-ghost" onClick={() => setSettingsOpen(false)}>Cancel</button><button className="btn" onClick={renameProject} disabled={!settingsName.trim()}>Save</button></div>
+            <div className="danger-zone">
+              <div>
+                <b>Delete project</b>
+                <span>Removes this project and all its sections, tasks and tags. Can’t be undone.</span>
+              </div>
+              <button className="btn-danger" onClick={deleteProject}><Icon name="trash" size={15} /> Delete</button>
+            </div>
           </div>
         </div>
       )}

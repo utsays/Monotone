@@ -144,6 +144,17 @@ const PATHS: Record<string, JSX.Element> = {
   ),
   chevronLeft: <path d="M15 6l-6 6 6 6" />,
   chevronRight: <path d="M9 6l6 6-6 6" />,
+  tick: <path d="M5 12.5l4 4L19 7" />,
+  list: (
+    <>
+      <path d="M8 6h12" />
+      <path d="M8 12h12" />
+      <path d="M8 18h12" />
+      <circle cx="4" cy="6" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="4" cy="12" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="4" cy="18" r="1.1" fill="currentColor" stroke="none" />
+    </>
+  ),
   plus: (
     <>
       <path d="M12 5v14" />
