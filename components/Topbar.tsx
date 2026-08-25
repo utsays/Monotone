@@ -16,6 +16,7 @@ export default function Topbar({ email, preview }: { email: string; preview: boo
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [projNames, setProjNames] = useState<Record<string, string>>({});
+  const [me, setMe] = useState<{ name: string; avatar_url: string | null; avatar_color: string | null } | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -39,6 +40,19 @@ export default function Topbar({ email, preview }: { email: string; preview: boo
   }, [supabase]);
 
   useEffect(() => {
+    if (!supabase) return;
+    async function loadMe() {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase!.from("members").select("name,avatar_url,avatar_color").eq("user_id", user.id).maybeSingle();
+      if (data) setMe(data as typeof me);
+    }
+    loadMe();
+    const ch = supabase.channel("me-topbar").on("postgres_changes", { event: "*", schema: "public", table: "members" }, loadMe).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [supabase]);
+
+  useEffect(() => {
     if (!supabase || q.trim().length < 1) { setResults([]); return; }
     let cancel = false;
     const t = setTimeout(async () => {
@@ -57,7 +71,7 @@ export default function Topbar({ email, preview }: { email: string; preview: boo
     router.push(`/operations?project=${r.project_id}&task=${r.id}`);
   }
 
-  const name = preview ? "Preview user" : email.split("@")[0];
+  const name = me?.name || (preview ? "Preview user" : email.split("@")[0]);
 
   return (
     <div className="appbar">
@@ -95,7 +109,7 @@ export default function Topbar({ email, preview }: { email: string; preview: boo
             <b>{name}</b>
             <span>{preview ? "Preview mode" : "Team member"}</span>
           </div>
-          <Avatar name={name} size={40} />
+          <Avatar name={name} url={me?.avatar_url} color={me?.avatar_color} size={40} />
           <Icon name="chevron" size={16} />
           {menuOpen && (
             <div className="user-menu" onClick={(e) => e.stopPropagation()}>
