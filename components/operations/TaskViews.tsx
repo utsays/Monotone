@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
 import Avatar from "@/components/Avatar";
 import DateChip from "@/components/DateChip";
-import { STATES, tagChip, labelColor } from "@/lib/ops";
+import { STATES, tagChip, labelColor, priorityMeta } from "@/lib/ops";
 import type { Task, Member, Tag, TaskState } from "@/lib/types";
 
 const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
@@ -26,15 +26,15 @@ function labChip(l: string, tagByName: Record<string, Tag>) {
 
 /* ---------------- List view ---------------- */
 export function ListView({
-  groups, memberMap, tagByName, onOpenTask, onQuickState, onDateChange,
-}: Handlers & { groups: { id: string; name: string; tasks: Task[] }[] }) {
-  const nonEmpty = groups.filter((g) => g.tasks.length > 0);
-  if (nonEmpty.length === 0)
+  groups, memberMap, tagByName, onOpenTask, onQuickState, onDateChange, onAddTask,
+}: Handlers & { groups: { id: string; name: string; tasks: Task[] }[]; onAddTask: (sectionId: string) => void }) {
+  const anyTasks = groups.some((g) => g.tasks.length > 0);
+  if (!anyTasks && groups.length === 0)
     return <div className="card"><div className="empty"><p className="muted">No tasks match your filters.</p></div></div>;
 
   return (
     <div className="list-view">
-      {nonEmpty.map((g) => (
+      {groups.map((g) => (
         <div key={g.id} className="lv-group">
           <div className="lv-group-head"><span className="nm">{g.name}</span><span className="cnt">{g.tasks.length}</span></div>
           <div className="lv-rows">
@@ -42,13 +42,17 @@ export function ListView({
               const done = t.state === "done";
               const assignee = t.assignee_id ? memberMap[t.assignee_id] : null;
               const overdue = !!t.end_date && t.end_date < todayStr() && !done;
+              const prio = priorityMeta(t.priority);
               const stop = (e: React.SyntheticEvent) => e.stopPropagation();
               return (
                 <div key={t.id} className={`lv-row${done ? " done" : ""}`} onClick={() => onOpenTask(t)}>
                   <span className={`qcheck${done ? " on" : ""}`} onClick={(e) => { stop(e); onQuickState(t.id, done ? "not_started" : "done"); }} title="Toggle complete">
                     {done && <Icon name="tick" size={12} strokeWidth={3.2} />}
                   </span>
-                  <span className="lv-title">{t.title}</span>
+                  <span className="lv-title">
+                    {prio && <span className="prio-dot" style={{ background: prio.color }} title={`${prio.label} priority`} />}
+                    {t.title}
+                  </span>
                   <span className="lv-tags">
                     {(t.labels ?? []).map((l) => { const c = labChip(l, tagByName); return <span key={l} className="lab" style={{ background: c.bg, color: c.fg }}>{l}</span>; })}
                   </span>
@@ -65,6 +69,7 @@ export function ListView({
                 </div>
               );
             })}
+            <button className="lv-add" onClick={() => onAddTask(g.id)}><Icon name="plus" size={14} /> Add task</button>
           </div>
         </div>
       ))}
@@ -74,10 +79,12 @@ export function ListView({
 
 /* ---------------- Calendar view ---------------- */
 export function TaskCalendar({
-  tasks, memberMap, tagByName, onOpenTask,
-}: Pick<Handlers, "memberMap" | "tagByName" | "onOpenTask"> & { tasks: Task[] }) {
+  tasks, onOpenTask, onCreateOnDay, onReschedule,
+}: Pick<Handlers, "onOpenTask"> & { tasks: Task[]; onCreateOnDay: (day: string) => void; onReschedule: (id: string, day: string) => void }) {
   const now = new Date();
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() });
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overDay, setOverDay] = useState<string | null>(null);
 
   const first = new Date(cursor.y, cursor.m, 1);
   const start = new Date(cursor.y, cursor.m, 1 - first.getDay());
@@ -113,10 +120,18 @@ export function TaskCalendar({
           const inMonth = d.getMonth() === cursor.m;
           const dayTasks = onDay(ds);
           return (
-            <div key={i} className={`cal-cell${inMonth ? "" : " out"}${ds === todayIso ? " today" : ""}`}>
-              <div className="cal-date">{d.getDate()}</div>
+            <div key={i}
+              className={`cal-cell${inMonth ? "" : " out"}${ds === todayIso ? " today" : ""}${overDay === ds ? " drop" : ""}`}
+              onDragOver={dragId ? (e) => { e.preventDefault(); if (overDay !== ds) setOverDay(ds); } : undefined}
+              onDrop={dragId ? (e) => { e.preventDefault(); onReschedule(dragId, ds); setDragId(null); setOverDay(null); } : undefined}>
+              <div className="cal-date">
+                {d.getDate()}
+                <button className="cal-add" title="Add task on this day" onClick={() => onCreateOnDay(ds)}><Icon name="plus" size={12} /></button>
+              </div>
               {dayTasks.slice(0, 3).map((t) => (
-                <div key={t.id} className="cal-task" title={t.title} onClick={() => onOpenTask(t)}>
+                <div key={t.id} className="cal-task" title={t.title} draggable
+                  onDragStart={() => setDragId(t.id)} onDragEnd={() => { setDragId(null); setOverDay(null); }}
+                  onClick={() => onOpenTask(t)}>
                   <span className="cbar" style={{ background: STATE_DOT[t.state] ?? "#c3c7cc" }} />
                   {t.title}
                 </div>

@@ -53,6 +53,17 @@ export const STATES: { key: TaskState; label: string }[] = [
   { key: "blocked", label: "Blocked" },
   { key: "done", label: "Done" },
 ];
+/** Task priority. Stored in the legacy `tasks.priority` text column; "none"/null = unset. */
+export type Priority = "none" | "low" | "medium" | "high";
+export const PRIORITIES: { key: Exclude<Priority, "none">; label: string; color: string }[] = [
+  { key: "high", label: "High", color: "#c4381a" },
+  { key: "medium", label: "Medium", color: "#FF5A1F" },
+  { key: "low", label: "Low", color: "#8b9099" },
+];
+export function priorityMeta(p?: string | null) {
+  return PRIORITIES.find((x) => x.key === p) ?? null;
+}
+
 export const STATE_LABEL: Record<TaskState, string> = {
   not_started: "Not started",
   in_progress: "In progress",

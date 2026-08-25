@@ -4,11 +4,11 @@ import { useState } from "react";
 import Icon from "@/components/Icon";
 import Avatar from "@/components/Avatar";
 import DateChip from "@/components/DateChip";
-import { STATES, tagChip, TAG_PALETTE, daysBetween } from "@/lib/ops";
+import { STATES, PRIORITIES, tagChip, TAG_PALETTE, daysBetween } from "@/lib/ops";
 import type { Task, Section, Member, Tag, Subtask, TaskState } from "@/lib/types";
 
 export default function TaskModal({
-  task, sections, members, tags, subtasks, defaultSectionId,
+  task, sections, members, tags, subtasks, defaultSectionId, defaultStart, defaultEnd,
   onClose, onSave, onDelete,
   onAddSubtask, onUpdateSubtask, onDeleteSubtask, onCreateTag,
 }: {
@@ -18,6 +18,8 @@ export default function TaskModal({
   tags: Tag[];
   subtasks: Subtask[];
   defaultSectionId: string | null;
+  defaultStart?: string | null;
+  defaultEnd?: string | null;
   onClose: () => void;
   onSave: (t: Partial<Task>) => void;
   onDelete?: () => void;
@@ -33,8 +35,9 @@ export default function TaskModal({
   const [state, setState] = useState<TaskState>(task?.state ?? "not_started");
   const [assigneeId, setAssigneeId] = useState<string | null>(task?.assignee_id ?? null);
   const [labels, setLabels] = useState<string[]>(task?.labels ?? []);
-  const [start, setStart] = useState<string | null>(task?.start_date ?? null);
-  const [end, setEnd] = useState<string | null>(task?.end_date ?? null);
+  const [priority, setPriority] = useState<string>(task?.priority ?? "none");
+  const [start, setStart] = useState<string | null>(task?.start_date ?? defaultStart ?? null);
+  const [end, setEnd] = useState<string | null>(task?.end_date ?? defaultEnd ?? null);
   const [err, setErr] = useState("");
   const [newSub, setNewSub] = useState("");
   const [tagMenu, setTagMenu] = useState(false);
@@ -59,7 +62,7 @@ export default function TaskModal({
     if (!start || !end) return setErr("Pick a start date and an end date.");
     if (end < start) return setErr("End date can’t be before the start date.");
     onSave({ id: task?.id, title: title.trim(), description, section_id: sectionId, state,
-      assignee_id: assigneeId, labels, start_date: start, end_date: end });
+      assignee_id: assigneeId, labels, priority, start_date: start, end_date: end });
   }
 
   const doneCt = subtasks.filter((s) => s.done).length;
@@ -111,6 +114,19 @@ export default function TaskModal({
               </button>
             ))}
             {active.length === 0 && <span className="muted" style={{ fontSize: 12.5 }}>Add people in the Team tab.</span>}
+          </div>
+        </div>
+
+        {/* Priority */}
+        <div className="field">
+          <label>Priority</label>
+          <div className="prio-pick">
+            <button type="button" className={`prio-opt${priority === "none" ? " on" : ""}`} onClick={() => setPriority("none")}>None</button>
+            {PRIORITIES.map((p) => (
+              <button type="button" key={p.key} className={`prio-opt${priority === p.key ? " on" : ""}`} onClick={() => setPriority(p.key)}>
+                <span className="pd" style={{ background: p.color }} />{p.label}
+              </button>
+            ))}
           </div>
         </div>
 

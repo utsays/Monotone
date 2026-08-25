@@ -677,3 +677,50 @@ table.data tr:last-child td{border-bottom:none}
 .danger-zone b{display:block;font-size:13px;color:var(--down)}
 .danger-zone span{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:2px;max-width:230px}
 .btn-danger{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+
+/* quick-view chips reuse .view-toggle */
+.view-toggle.quick button{padding:7px 12px}
+
+/* priority — segmented control (modal), chip (card), dot (list) */
+.prio-pick{display:flex;gap:6px;flex-wrap:wrap}
+.prio-opt{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface-2);border-radius:10px;padding:8px 13px;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;transition:.12s}
+.prio-opt:hover{color:var(--ink)}
+.prio-opt.on{background:var(--surface);color:var(--ink);border-color:var(--ink)}
+.prio-opt .pd{width:8px;height:8px;border-radius:50%}
+.prio-chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;letter-spacing:.02em}
+.prio-chip .pd{width:7px;height:7px;border-radius:50%}
+.prio-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:middle;flex-shrink:0}
+
+/* list-view add-task */
+.lv-add{width:100%;border:1px dashed var(--line-2);background:transparent;border-radius:10px;padding:9px;font-family:inherit;font-weight:700;font-size:12.5px;color:var(--ink-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;transition:.12s}
+.lv-add:hover{background:var(--surface);color:var(--ink)}
+
+/* calendar — add button + drag/drop */
+.cal-date{display:flex;align-items:center;justify-content:space-between}
+.cal-add{width:20px;height:20px;border-radius:6px;border:none;background:transparent;color:var(--ink-soft);cursor:pointer;display:grid;place-items:center;opacity:0;transition:.12s}
+.cal-cell:hover .cal-add{opacity:1}
+.cal-add:hover{background:var(--surface-2);color:var(--ink)}
+.cal-cell.drop{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+.cal-task[draggable="true"]{cursor:grab}
+.cal-task[draggable="true"]:active{cursor:grabbing}
+
+/* Tag manager */
+.tagmgr-list{display:flex;flex-direction:column;gap:8px;max-height:44vh;overflow-y:auto}
+.tagmgr-row{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:10px}
+.tagmgr-row .lab{justify-self:start}
+.tagmgr-name{border:1px solid var(--line-2);border-radius:9px;padding:7px 10px;font-family:inherit;font-size:13px;background:var(--surface-2);color:var(--ink);min-width:0}
+.tagmgr-name:focus{outline:none;border-color:var(--ink);background:#fff}
+.tagmgr-create{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.tagmgr-create input{flex:1;min-width:130px;border:1px solid var(--line-2);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13px;background:var(--surface-2);color:var(--ink)}
+.tagmgr-create input:focus{outline:none;border-color:var(--ink);background:#fff}
+.sw.none{background:#fff;border:1px solid var(--line-2);position:relative;overflow:hidden}
+.sw.none::after{content:"";position:absolute;left:1px;right:1px;top:50%;height:2px;background:var(--down);transform:rotate(-45deg)}
+
+/* Projects portfolio — toolbar, card settings, colour dot */
+.port-toolbar{display:flex;justify-content:flex-end;margin-bottom:16px}
+.port-card{position:relative}
+.port-cog{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:9px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-soft);cursor:pointer;display:grid;place-items:center;opacity:0;transition:.12s;z-index:1}
+.port-card:hover .port-cog{opacity:1}
+.port-cog:hover{color:var(--ink);background:var(--surface-2)}
+.port-head h3{display:flex;align-items:center;gap:8px}
+.port-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
