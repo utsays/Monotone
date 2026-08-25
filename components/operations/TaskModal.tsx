@@ -6,7 +6,16 @@ import Avatar from "@/components/Avatar";
 import DateChip from "@/components/DateChip";
 import Select from "@/components/Select";
 import { STATES, PRIORITIES, tagChip, TAG_PALETTE, daysBetween } from "@/lib/ops";
-import type { Task, Section, Member, Tag, Subtask, TaskState } from "@/lib/types";
+import type { Task, Section, Member, Tag, Subtask, TaskState, TaskComment } from "@/lib/types";
+
+function fmtWhen(iso: string) {
+  const d = new Date(iso), now = Date.now(), diff = (now - d.getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
 
@@ -14,6 +23,7 @@ export default function TaskModal({
   task, sections, members, tags, subtasks, defaultSectionId, defaultStart, defaultEnd,
   onClose, onSave, onDelete,
   onAddSubtask, onUpdateSubtask, onDeleteSubtask, onCreateTag,
+  comments = [], memberMap = {}, myMemberId = null, onAddComment, onDeleteComment,
 }: {
   task: Task | null;
   sections: Section[];
@@ -31,6 +41,11 @@ export default function TaskModal({
   onDeleteSubtask: (id: string) => void;
   onCreateTag: (name: string, color: string) => void;
   onDeleteTag?: (id: string) => void;
+  comments?: TaskComment[];
+  memberMap?: Record<string, Member>;
+  myMemberId?: string | null;
+  onAddComment?: (taskId: string, body: string) => void;
+  onDeleteComment?: (id: string) => void;
 }) {
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
@@ -45,6 +60,14 @@ export default function TaskModal({
   const [newSub, setNewSub] = useState("");
   const [tagMenu, setTagMenu] = useState(false);
   const [newTag, setNewTag] = useState("");
+  const [newComment, setNewComment] = useState("");
+
+  function sendComment() {
+    const text = newComment.trim();
+    if (!text || !task?.id || !onAddComment) return;
+    onAddComment(task.id, text);
+    setNewComment("");
+  }
 
   const est = daysBetween(start, end);
   const active = members.filter((m) => m.active !== false);
@@ -180,6 +203,41 @@ export default function TaskModal({
                 <button className="btn-ghost btn-sm" onClick={() => { if (newSub.trim()) { onAddSubtask(task.id, newSub.trim()); setNewSub(""); } }}>Add</button>
               </div>
             </>
+          )}
+        </div>
+
+        {/* Comments */}
+        <div className="field" style={{ marginTop: 14 }}>
+          <label>Comments {comments.length > 0 && `· ${comments.length}`}</label>
+          {!task ? (
+            <p className="muted" style={{ fontSize: 12.5 }}>Save the task first, then start a discussion here.</p>
+          ) : (
+            <div className="cmt-wrap">
+              {comments.length === 0 && <p className="muted" style={{ fontSize: 12.5 }}>No comments yet. Start the thread below.</p>}
+              {comments.map((c) => {
+                const author = c.member_id ? memberMap[c.member_id] : null;
+                return (
+                  <div className="cmt" key={c.id}>
+                    <Avatar name={author?.name ?? "?"} url={author?.avatar_url} color={author?.avatar_color} size={28} />
+                    <div className="cmt-body">
+                      <div className="cmt-head">
+                        <b>{author?.name ?? "Someone"}</b>
+                        <span className="cmt-time">{fmtWhen(c.created_at)}</span>
+                        {onDeleteComment && (!c.member_id || c.member_id === myMemberId) && (
+                          <button className="cmt-del" title="Delete comment" onClick={() => onDeleteComment(c.id)}><Icon name="trash" size={13} /></button>
+                        )}
+                      </div>
+                      <p className="cmt-text">{c.body}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="cmt-add">
+                <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Write a comment…"
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendComment(); } }} />
+                <button className="btn btn-sm" onClick={sendComment} disabled={!newComment.trim()}>Send</button>
+              </div>
+            </div>
           )}
         </div>
 

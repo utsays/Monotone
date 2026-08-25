@@ -10,6 +10,7 @@ import type { Task, Member, Tag, TaskState } from "@/lib/types";
 
 const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
 const todayStr = () => new Date().toISOString().slice(0, 10);
+const dueSoonStr = () => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toISOString().slice(0, 10); };
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -43,6 +44,7 @@ export function ListView({
               const done = t.state === "done";
               const assignees = (t.assignee_ids ?? (t.assignee_id ? [t.assignee_id] : [])).map((id) => memberMap[id]).filter(Boolean) as Member[];
               const overdue = !!t.end_date && t.end_date < todayStr() && !done;
+              const soon = !done && !!t.end_date && t.end_date >= todayStr() && t.end_date <= dueSoonStr();
               const prio = priorityMeta(t.priority);
               const stop = (e: React.SyntheticEvent) => e.stopPropagation();
               return (
@@ -62,7 +64,7 @@ export function ListView({
                       options={STATES.map((s) => ({ value: s.key, label: s.label, color: STATE_DOT[s.key] }))} />
                   </span>
                   <span className="lv-date" onClick={stop}>
-                    <DateChip value={t.end_date} onChange={(v) => onDateChange(t.id, "end_date", v)} placeholder="＋ date" overdue={overdue} />
+                    <DateChip value={t.end_date} onChange={(v) => onDateChange(t.id, "end_date", v)} placeholder="＋ date" overdue={overdue} soon={soon} />
                   </span>
                   <span className="lv-asg"><AvatarStack members={assignees} size={26} /></span>
                 </div>

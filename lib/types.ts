@@ -66,6 +66,14 @@ export type Task = {
   due_date?: string | null;
 };
 
+export type TaskComment = {
+  id: string;
+  task_id: string;
+  member_id: string | null;
+  body: string;
+  created_at: string;
+};
+
 export type Subtask = {
   id: string;
   task_id: string;
