@@ -12,9 +12,11 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import Icon from "@/components/Icon";
+import Avatar from "@/components/Avatar";
+import DateChip, { fmtShort } from "@/components/DateChip";
 import TaskModal from "./TaskModal";
 import MembersModal from "./MembersModal";
-import { STATES, STATE_LABEL, tagChip, labelColor, daysBetween, initials, avatarColor } from "@/lib/ops";
+import { STATES, STATE_LABEL, tagChip, labelColor, daysBetween } from "@/lib/ops";
 import type { Project, Section, Task, Subtask, Member, Tag, TaskState } from "@/lib/types";
 
 const UNSORTED = "__unsorted__";
@@ -96,6 +98,7 @@ function BoardInner() {
 
   const [activeDrag, setActiveDrag] = useState<{ id: string; type: "task" | "section" } | null>(null);
   const draggingRef = useRef(false);
+  const openedTaskRef = useRef<string | null>(null);
   const itemsRef = useRef(items); itemsRef.current = items;
   const orderRef = useRef(containerOrder); orderRef.current = containerOrder;
 
@@ -118,7 +121,7 @@ function BoardInner() {
     const [secs, tks, mem, tg] = await Promise.all([
       supabase.from("sections").select("*").eq("project_id", pid).order("position"),
       supabase.from("tasks").select("*").eq("project_id", pid).order("position"),
-      supabase.from("members").select("*").eq("project_id", pid).order("name"),
+      supabase.from("members").select("*").order("name"),
       supabase.from("tags").select("*").eq("project_id", pid).order("name"),
     ]);
     if ((tks.error && isMissing(tks.error)) || (mem.error && isMissing(mem.error))) { setSetupNeeded(true); return; }
@@ -137,9 +140,33 @@ function BoardInner() {
     const ids = tasks.map((t) => t.id);
     if (ids.length) { const { data: st } = await supabase.from("subtasks").select("*").in("task_id", ids).order("position"); setSubs((st ?? []) as Subtask[]); }
     else setSubs([]);
+    if (typeof window !== "undefined") {
+      const urlTask = new URLSearchParams(window.location.search).get("task");
+      if (urlTask && openedTaskRef.current !== urlTask) {
+        const t = tasks.find((x) => x.id === urlTask);
+        if (t) {
+          openedTaskRef.current = urlTask;
+          setEditing(t);
+          const u = new URL(window.location.href); u.searchParams.delete("task"); window.history.replaceState({}, "", u);
+        }
+      }
+    }
   }, [supabase]);
 
-  useEffect(() => { loadProjects(); }, [loadProjects]);
+  const ensureMe = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: byId } = await supabase.from("members").select("id").eq("user_id", user.id).maybeSingle();
+    if (byId) return;
+    const byEmail = user.email ? (await supabase.from("members").select("id,user_id").eq("email", user.email).maybeSingle()).data : null;
+    if (byEmail && !byEmail.user_id) {
+      await supabase.from("members").update({ user_id: user.id }).eq("id", byEmail.id);
+    } else if (!byEmail) {
+      await supabase.from("members").insert({ name: (user.email ?? "me").split("@")[0], email: user.email, user_id: user.id });
+    }
+  }, [supabase]);
+
+  useEffect(() => { ensureMe().then(loadProjects); }, [ensureMe, loadProjects]);
 
   useEffect(() => {
     if (!activeProject) return;
@@ -192,10 +219,13 @@ function BoardInner() {
     setTaskMap((m) => ({ ...m, [id]: { ...m[id], state } }));
     await supabase.from("tasks").update({ state }).eq("id", id);
   }
+  async function updateTaskDate(id: string, field: "start_date" | "end_date", value: string | null) {
+    setTaskMap((m) => ({ ...m, [id]: { ...m[id], [field]: value } }));
+    await supabase.from("tasks").update({ [field]: value }).eq("id", id);
+  }
   async function addMember(name: string, email: string) {
-    if (!activeProject) return;
-    await supabase.from("members").insert({ project_id: activeProject, name, email: email || null });
-    loadBoard(activeProject);
+    await supabase.from("members").insert({ name, email: email || null });
+    if (activeProject) loadBoard(activeProject);
   }
   async function removeMember(id: string) { await supabase.from("members").delete().eq("id", id); if (activeProject) loadBoard(activeProject); }
   async function createTag(name: string, color: string) {
@@ -238,9 +268,10 @@ function BoardInner() {
     if (!over) { draggingRef.current = false; return; }
     const activeId = String(active.id), overId = String(over.id);
 
-    if (activeId in itemsRef.current) { // section reorder
-      if (activeId !== overId && overId in itemsRef.current && overId !== UNSORTED) {
-        const oldI = orderRef.current.indexOf(activeId), newI = orderRef.current.indexOf(overId);
+    if (activeDrag?.type === "section" || activeId in itemsRef.current) { // section reorder
+      const overContainer = overId in itemsRef.current ? overId : findContainer(overId);
+      if (overContainer && overContainer !== UNSORTED && overContainer !== activeId) {
+        const oldI = orderRef.current.indexOf(activeId), newI = orderRef.current.indexOf(overContainer);
         if (oldI >= 0 && newI >= 0) {
           const next = arrayMove(orderRef.current, oldI, newI);
           setContainerOrder(next);
@@ -328,7 +359,7 @@ function BoardInner() {
             {hasUnsorted && (
               <Column id={UNSORTED} title="Unsorted" deletable={false} sortableSection={false}
                 taskIds={(items[UNSORTED] ?? []).filter(visible)} {...{ taskMap, memberMap, tagByName, subCount, filterActive }}
-                onOpenTask={setEditing} onQuickState={quickState} onAddTask={() => {}} />
+                onOpenTask={setEditing} onQuickState={quickState} onAddTask={() => {}} onDateChange={updateTaskDate} />
             )}
             <SortableContext items={containerOrder} strategy={horizontalListSortingStrategy} disabled={filterActive}>
               {containerOrder.map((cid) => {
@@ -337,7 +368,7 @@ function BoardInner() {
                   <Column key={cid} id={cid} title={sec.name} deletable sortableSection
                     taskIds={(items[cid] ?? []).filter(visible)} {...{ taskMap, memberMap, tagByName, subCount, filterActive }}
                     renaming={renamingId === cid} onStartRename={() => setRenamingId(cid)} onRename={(v) => renameSection(cid, v)} onCancelRename={() => setRenamingId(null)}
-                    onDelete={() => deleteSection(cid)} onOpenTask={setEditing} onQuickState={quickState} onAddTask={() => setCreating(cid)} />
+                    onDelete={() => deleteSection(cid)} onOpenTask={setEditing} onQuickState={quickState} onAddTask={() => setCreating(cid)} onDateChange={updateTaskDate} />
                 );
               })}
             </SortableContext>
@@ -394,6 +425,7 @@ function Column(props: {
   subCount: (id: string) => { total: number; done: number }; filterActive: boolean;
   renaming?: boolean; onStartRename?: () => void; onRename?: (v: string) => void; onCancelRename?: () => void; onDelete?: () => void;
   onOpenTask: (t: Task) => void; onQuickState: (id: string, s: TaskState) => void; onAddTask: () => void;
+  onDateChange: (id: string, field: "start_date" | "end_date", value: string | null) => void;
 }) {
   const { id, title, deletable, sortableSection, taskIds, taskMap, memberMap, tagByName, subCount, filterActive } = props;
   const disabled = sortableSection ? filterActive : { draggable: true, droppable: filterActive };
@@ -421,7 +453,8 @@ function Column(props: {
         <div className="col-body">
           {taskIds.map((tid) => taskMap[tid] && (
             <SortableCard key={tid} task={taskMap[tid]} memberMap={memberMap} tagByName={tagByName} sub={subCount(tid)}
-              disabled={filterActive} onOpen={() => props.onOpenTask(taskMap[tid])} onQuickState={(s) => props.onQuickState(tid, s)} />
+              disabled={filterActive} onOpen={() => props.onOpenTask(taskMap[tid])} onQuickState={(s) => props.onQuickState(tid, s)}
+              onDateChange={(f, v) => props.onDateChange(tid, f, v)} />
           ))}
         </div>
       </SortableContext>
@@ -431,31 +464,34 @@ function Column(props: {
 }
 
 // ---------------- Card ----------------
-function SortableCard({ task, memberMap, tagByName, sub, disabled, onOpen, onQuickState }: {
+function SortableCard({ task, memberMap, tagByName, sub, disabled, onOpen, onQuickState, onDateChange }: {
   task: Task; memberMap: Record<string, Member>; tagByName: Record<string, Tag>; sub: { total: number; done: number };
   disabled: boolean; onOpen: () => void; onQuickState: (s: TaskState) => void;
+  onDateChange: (field: "start_date" | "end_date", value: string | null) => void;
 }) {
   const sortable = useSortable({ id: task.id, data: { type: "task" }, disabled });
   const style = { transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition, opacity: sortable.isDragging ? 0.35 : 1 };
   return (
     <div ref={sortable.setNodeRef} style={style} {...sortable.attributes} {...sortable.listeners} onClick={onOpen}>
-      <CardBody task={task} memberMap={memberMap} tagByName={tagByName} sub={sub} onQuickState={onQuickState} />
+      <CardBody task={task} memberMap={memberMap} tagByName={tagByName} sub={sub} onQuickState={onQuickState} onDateChange={onDateChange} />
     </div>
   );
 }
 
-function CardBody({ task, memberMap, tagByName, sub, onQuickState, overlay }: {
+function CardBody({ task, memberMap, tagByName, sub, onQuickState, onDateChange, overlay }: {
   task: Task; memberMap: Record<string, Member>; tagByName: Record<string, Tag>; sub: { total: number; done: number };
-  onQuickState?: (s: TaskState) => void; overlay?: boolean;
+  onQuickState?: (s: TaskState) => void; onDateChange?: (field: "start_date" | "end_date", value: string | null) => void; overlay?: boolean;
 }) {
   const est = daysBetween(task.start_date, task.end_date);
   const assignee = task.assignee_id ? memberMap[task.assignee_id] : null;
+  const done = task.state === "done";
+  const overdue = !!task.end_date && task.end_date < todayStr() && !done;
   const stop = (e: React.SyntheticEvent) => { e.stopPropagation(); };
   return (
-    <div className={`tcard${task.state === "done" ? " done" : ""}${overlay ? " overlay" : ""}`}>
+    <div className={`tcard${done ? " done" : ""}${overlay ? " overlay" : ""}`}>
       <div className="tcard-h">
-        <span className="qcheck" onPointerDown={stop} onClick={(e) => { stop(e); onQuickState?.(task.state === "done" ? "not_started" : "done"); }} title="Toggle complete">
-          {task.state === "done" && <Icon name="check" size={12} strokeWidth={3} />}
+        <span className={`qcheck${done ? " on" : ""}`} onPointerDown={stop} onClick={(e) => { stop(e); onQuickState?.(done ? "not_started" : "done"); }} title="Toggle complete">
+          {done && <Icon name="check" size={12} strokeWidth={3.2} />}
         </span>
         <span className="ttl">{task.title}</span>
       </div>
@@ -479,10 +515,12 @@ function CardBody({ task, memberMap, tagByName, sub, onQuickState, overlay }: {
       </div>
       <div className="tcard-foot">
         <div className="left">
-          {task.end_date && <span className={`due${task.end_date < todayStr() && task.state !== "done" ? " over" : ""}`}><Icon name="calendar" size={12} /> {fmtDate(task.end_date)}</span>}
+          {onDateChange ? (
+            <DateChip value={task.end_date} onChange={(v) => onDateChange("end_date", v)} placeholder="＋ date" overdue={overdue} stopDrag />
+          ) : task.end_date ? <span className="date-chip">{fmtShort(task.end_date)}</span> : null}
           {sub.total > 0 && <span className="sub-ind"><Icon name="check" size={12} /> {sub.done}/{sub.total}</span>}
         </div>
-        {assignee && <span className="mini-av" style={{ background: avatarColor(assignee.name) }} title={assignee.name}>{initials(assignee.name)}</span>}
+        {assignee && <Avatar name={assignee.name} url={assignee.avatar_url} color={assignee.avatar_color} size={26} />}
       </div>
     </div>
   );

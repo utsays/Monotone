@@ -78,6 +78,33 @@ const PATHS: Record<string, JSX.Element> = {
     </>
   ),
   chevron: <path d="M6 9.5l6 6 6-6" />,
+  briefcase: (
+    <>
+      <rect x="3" y="7" width="18" height="13" rx="2.5" />
+      <path d="M8 7V5.5A2 2 0 0 1 10 3.5h4a2 2 0 0 1 2 2V7" />
+      <path d="M3 12.5h18" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M4 8h3l1.5-2h7L17 8h3a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 20H4a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 4 8Z" />
+      <circle cx="12" cy="13" r="3.4" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
+      <path d="M9 12l2 2 4-4" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="8" cy="15" r="4.5" />
+      <path d="M11.2 11.8L20 3" />
+      <path d="M16 7l3 3" />
+      <path d="M18 5l2.5 2.5" />
+    </>
+  ),
   grip: (
     <>
       {[7, 12, 17].map((cy) => (

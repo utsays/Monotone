@@ -22,9 +22,14 @@ export type Section = {
 
 export type Member = {
   id: string;
-  project_id: string;
+  project_id: string | null;
   name: string;
   email: string | null;
+  avatar_url: string | null;
+  avatar_color: string | null;
+  user_id: string | null;
+  active: boolean;
+  role: string | null;
   created_at: string;
 };
 

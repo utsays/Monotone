@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import Icon from "@/components/Icon";
+import Logo from "@/components/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,8 +36,8 @@ export default function LoginPage() {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="auth-brand">
-          <span className="logo"><Icon name="grid" size={18} strokeWidth={2} /></span>
-          Agency Dashboard
+          <span className="logo"><Logo size={19} /></span>
+          Monotone
         </div>
         <p className="auth-sub">
           {configured
