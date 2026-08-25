@@ -45,3 +45,6 @@ next-env.d.ts
 
 # local-only Supabase access token (never commit)
 .supabase-token
+
+supabase.token/
+supabase-token.txt

@@ -14,9 +14,11 @@ const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "dxkaegvahrkogqdykwcq";
 
 function getToken() {
   if (process.env.SUPABASE_ACCESS_TOKEN) return process.env.SUPABASE_ACCESS_TOKEN.trim();
-  const file = resolve(root, ".supabase-token");
-  if (existsSync(file)) return readFileSync(file, "utf8").trim();
-  console.error("No token found. Save your Supabase access token to .supabase-token (git-ignored) or set SUPABASE_ACCESS_TOKEN.");
+  for (const name of ["supabase-token.txt", ".supabase-token"]) {
+    const file = resolve(root, name);
+    if (existsSync(file)) return readFileSync(file, "utf8").trim();
+  }
+  console.error("No token found. Save your Supabase access token to supabase-token.txt (git-ignored) or set SUPABASE_ACCESS_TOKEN.");
   process.exit(1);
 }
 
