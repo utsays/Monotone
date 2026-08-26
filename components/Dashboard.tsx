@@ -51,7 +51,9 @@ function DashHead() {
 }
 
 function DashboardInner({ preview = false }: { preview?: boolean }) {
-  const supabase = useMemo(() => createClient(), []);
+  // In preview mode Supabase isn't configured (createClient() throws if the env vars are
+  // absent, which they are on a preview deploy) — skip creating a real client entirely.
+  const supabase = useMemo(() => (preview ? null : createClient()), [preview]);
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>(preview ? PV_PROJECTS : []);
   const [tasks, setTasks] = useState<Task[]>(preview ? PV_TASKS : []);
@@ -60,13 +62,14 @@ function DashboardInner({ preview = false }: { preview?: boolean }) {
   const [setup, setSetup] = useState(false);
 
   useEffect(() => {
-    if (preview) return;
+    if (preview || !supabase) return;
+    const sb = supabase;
     let alive = true;
     async function load() {
       const [p, t, m] = await Promise.all([
-        supabase.from("projects").select("id,name,created_at").order("created_at"),
-        supabase.from("tasks").select("id,project_id,state,start_date,end_date,assignee_id,title"),
-        supabase.from("members").select("id,name,avatar_url,avatar_color,active").order("name"),
+        sb.from("projects").select("id,name,created_at").order("created_at"),
+        sb.from("tasks").select("id,project_id,state,start_date,end_date,assignee_id,title"),
+        sb.from("members").select("id,name,avatar_url,avatar_color,active").order("name"),
       ]);
       if (!alive) return;
       if ((p.error && /does not exist/i.test(p.error.message)) || (m.error && /does not exist/i.test(m.error.message))) { setSetup(true); setLoading(false); return; }
@@ -76,12 +79,12 @@ function DashboardInner({ preview = false }: { preview?: boolean }) {
       setLoading(false);
     }
     load();
-    const ch = supabase.channel("dash")
+    const ch = sb.channel("dash")
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "members" }, load)
       .subscribe();
-    return () => { alive = false; supabase.removeChannel(ch); };
+    return () => { alive = false; sb.removeChannel(ch); };
   }, [supabase, preview]);
 
   const d = useMemo(() => {
