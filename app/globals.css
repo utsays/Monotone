@@ -33,7 +33,7 @@
   --radius-lg:26px;
   --shadow:0 10px 28px -16px rgba(30,20,12,.28);
   --shadow-sm:0 2px 8px -4px rgba(30,20,12,.14);
-  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font:var(--font-grotesk),-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 }
 
 *{box-sizing:border-box}

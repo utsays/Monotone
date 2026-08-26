@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const grotesk = localFont({
+  src: "./fonts/OverusedGrotesk-VF.woff2",
+  variable: "--font-grotesk",
+  weight: "300 900",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Monotone",
@@ -11,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={grotesk.variable}>
       <body>{children}</body>
     </html>
   );
