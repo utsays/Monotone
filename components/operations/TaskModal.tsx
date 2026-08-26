@@ -114,7 +114,7 @@ export default function TaskModal({
         <div className="field">
           <label>Tags</label>
           <div className="tag-line">
-            {labels.map((l) => { const c = tagByName[l.toLowerCase()] ? tagChip(tagByName[l.toLowerCase()]) : { bg: "#eceef0", fg: "#5a5f66" };
+            {labels.map((l) => { const c = tagByName[l.toLowerCase()] ? tagChip(tagByName[l.toLowerCase()]) : { bg: "#eef0e7", fg: "#4a4c44" };
               return <span key={l} className="lab" style={{ background: c.bg, color: c.fg }}>{l}<span className="lab-x" onClick={() => toggleTag(l)}>✕</span></span>; })}
             <div className="tag-add-wrap">
               <button type="button" className="tag-add-btn" onClick={() => setTagMenu((m) => !m)}><Icon name="plus" size={14} /></button>

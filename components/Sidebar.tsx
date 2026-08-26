@@ -28,7 +28,7 @@ export default function Sidebar() {
     const active = pathname === n.href;
     return (
       <Link key={n.href} href={n.href} className={`nav-item${active ? " active" : ""}`} onClick={() => setOpen(false)}>
-        <Icon name={n.icon} strokeWidth={active ? 2 : 1.8} />
+        <Icon name={n.icon} strokeWidth={active ? 2.3 : 2} />
         {n.label}
         {n.badge && <span className="nbadge">{n.badge}</span>}
       </Link>

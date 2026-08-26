@@ -21,7 +21,7 @@ export const TAG_PALETTE = [
 ];
 
 export function labelColor(name: string) {
-  return LABEL_COLORS[name] ?? { bg: "#eceef0", fg: "#5a5f66" };
+  return LABEL_COLORS[name] ?? { bg: "#eef0e7", fg: "#4a4c44" };
 }
 
 /** Resolve a tag's chip colours: explicit colour if set, else the label fallback. */

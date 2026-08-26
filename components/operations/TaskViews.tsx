@@ -134,7 +134,7 @@ export function TaskCalendar({
                   onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", t.id); setDragId(t.id); }}
                   onDragEnd={() => { setDragId(null); setOverDay(null); }}
                   onClick={() => onOpenTask(t)}>
-                  <span className="cbar" style={{ background: STATE_DOT[t.state] ?? "#c3c7cc" }} />
+                  <span className="cbar" style={{ background: STATE_DOT[t.state] ?? "var(--ink-soft)" }} />
                   {t.title}
                 </div>
               ))}

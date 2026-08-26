@@ -84,7 +84,7 @@ function CalendarInner() {
               <div className="cal-date">{d.getDate()}</div>
               {dayTasks.slice(0, 3).map((t) => (
                 <div key={t.id} className="cal-task" title={t.title} onClick={() => setDetail(t)}>
-                  <span className="cbar" style={{ background: STATE_DOT[t.state] ?? "#c3c7cc" }} />
+                  <span className="cbar" style={{ background: STATE_DOT[t.state] ?? "var(--ink-soft)" }} />
                   {t.title}
                 </div>
               ))}
