@@ -731,9 +731,11 @@ const PV_COLUMNS: { name: string; tasks: Task[] }[] = [
 
 function PreviewBoard() {
   const [open, setOpen] = useState<Task | null>(null);
+  const [view, setView] = useState<ViewMode>("board");
   const memberMap = Object.fromEntries(PV_MEMBERS.map((m) => [m.id, m]));
   const tagByName = Object.fromEntries(PV_TAGS.map((t) => [t.name.toLowerCase(), t]));
   const noop = () => {};
+  const allTasks = PV_COLUMNS.flatMap((c) => c.tasks);
   return (
     <>
       <div className="ops-bar">
@@ -742,11 +744,21 @@ function PreviewBoard() {
           <button className="proj-tab">+ New project</button>
         </div>
         <div className="ops-tools">
-          <div className="view-toggle"><button className="active"><Icon name="grid" size={15} /> Board</button><button><Icon name="list" size={15} /> List</button><button><Icon name="calendar" size={15} /> Calendar</button></div>
+          <div className="view-toggle">
+            <button className={view === "board" ? "active" : ""} onClick={() => setView("board")}><Icon name="grid" size={15} /> Board</button>
+            <button className={view === "list" ? "active" : ""} onClick={() => setView("list")}><Icon name="list" size={15} /> List</button>
+            <button className={view === "calendar" ? "active" : ""} onClick={() => setView("calendar")}><Icon name="calendar" size={15} /> Calendar</button>
+          </div>
           <label className="mini-search"><Icon name="search" size={16} /><input placeholder="Search tasks" readOnly /></label>
           <button className="tool-btn"><Icon name="users" size={16} /> Members</button>
         </div>
       </div>
+      {view === "list" ? (
+        <ListView groups={PV_COLUMNS.map((c) => ({ id: c.name, name: c.name, tasks: c.tasks }))}
+          memberMap={memberMap} tagByName={tagByName} onOpenTask={setOpen} onQuickState={noop} onDateChange={noop} onAddTask={noop} />
+      ) : view === "calendar" ? (
+        <TaskCalendar tasks={allTasks} onOpenTask={setOpen} onCreateOnDay={noop} onReschedule={noop} />
+      ) : (
       <div className="board">
         {PV_COLUMNS.map((col) => (
           <div key={col.name} className="col">
@@ -762,6 +774,7 @@ function PreviewBoard() {
           </div>
         ))}
       </div>
+      )}
       {open && (
         <TaskModal task={open} sections={[{ id: "s1", project_id: "p1", name: "Backlog", position: 0, created_at: "" }]}
           members={PV_MEMBERS} tags={PV_TAGS} subtasks={[]} defaultSectionId="s1"
