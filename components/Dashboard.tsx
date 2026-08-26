@@ -12,14 +12,30 @@ const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
+// Local sample data so the dashboard is browsable (and visually verifiable) in preview mode.
+function pvIso(offset: number) { const d = new Date(); d.setDate(d.getDate() + offset); return d.toISOString().slice(0, 10); }
+const PV_PROJECTS: Project[] = [
+  { id: "p1", name: "Agency Launch", color: "#5c7a17", created_at: "" },
+  { id: "p2", name: "Client Site Redesign", color: "#445468", created_at: "" },
+  { id: "p3", name: "Newsletter Revamp", color: null, created_at: "" },
+];
+const pvT = (p: Partial<Task>): Task => ({ id: "", project_id: "p1", section_id: null, title: "", description: null, state: "not_started", labels: [], assignee_id: null, start_date: null, end_date: null, position: 0, created_at: "", ...p });
+const PV_TASKS: Task[] = [
+  pvT({ id: "t1", title: "Define brand positioning & tone", state: "done", assignee_id: "m1", end_date: pvIso(-6) }),
+  pvT({ id: "t2", title: "Homepage wireframe", state: "in_progress", assignee_id: "m1", end_date: pvIso(-1) }),
+  pvT({ id: "t3", title: "Write hero + services copy", state: "in_progress", assignee_id: "m2", end_date: pvIso(2) }),
+  pvT({ id: "t4", title: "Collect competitor references", state: "not_started", assignee_id: "m2", end_date: pvIso(2) }),
+  pvT({ id: "t5", title: "Finalize colour system", state: "done", assignee_id: "m1", end_date: pvIso(-3) }),
+  pvT({ id: "t6", project_id: "p2", title: "Migrate content to new CMS", state: "done", assignee_id: "m2", end_date: pvIso(-9) }),
+  pvT({ id: "t7", project_id: "p2", title: "QA on staging", state: "done", assignee_id: "m1", end_date: pvIso(-4) }),
+];
+const PV_MEMBERS: Member[] = [
+  { id: "m1", project_id: null, name: "Uzair Tariq", email: null, avatar_url: null, avatar_color: "#121210", user_id: null, active: true, role: null, created_at: "" },
+  { id: "m2", project_id: null, name: "Sara Malik", email: null, avatar_url: null, avatar_color: "#445468", user_id: null, active: true, role: null, created_at: "" },
+];
+
 export default function Dashboard() {
-  if (!isSupabaseConfigured())
-    return (
-      <>
-        <DashHead />
-        <div className="card"><div className="empty"><h4>Connect Supabase to see your data</h4><p className="muted">The dashboard reads live from your projects and tasks.</p></div></div>
-      </>
-    );
+  if (!isSupabaseConfigured()) return <DashboardInner preview />;
   return <DashboardInner />;
 }
 
@@ -34,16 +50,17 @@ function DashHead() {
   );
 }
 
-function DashboardInner() {
+function DashboardInner({ preview = false }: { preview?: boolean }) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>(preview ? PV_PROJECTS : []);
+  const [tasks, setTasks] = useState<Task[]>(preview ? PV_TASKS : []);
+  const [members, setMembers] = useState<Member[]>(preview ? PV_MEMBERS : []);
+  const [loading, setLoading] = useState(!preview);
   const [setup, setSetup] = useState(false);
 
   useEffect(() => {
+    if (preview) return;
     let alive = true;
     async function load() {
       const [p, t, m] = await Promise.all([
@@ -65,7 +82,7 @@ function DashboardInner() {
       .on("postgres_changes", { event: "*", schema: "public", table: "members" }, load)
       .subscribe();
     return () => { alive = false; supabase.removeChannel(ch); };
-  }, [supabase]);
+  }, [supabase, preview]);
 
   const d = useMemo(() => {
     const byProject = (pid: string) => tasks.filter((t) => t.project_id === pid);
@@ -152,7 +169,7 @@ function DashboardInner() {
                 <div className="bar-wrap" key={i}>
                   <div className="bar-track">
                     {i === d.peakIdx && d.maxDay > 0 && <span className="bar-tip">{c}</span>}
-                    <div className={`bar${c === 0 ? " hatch" : ""}`} style={{ height: `${d.maxDay ? (c / d.maxDay) * 100 : 0}%` }} />
+                    <div className={`bar${c === 0 ? " hatch" : ""}${i === d.peakIdx && d.maxDay > 0 ? " peak" : ""}`} style={{ height: `${d.maxDay ? (c / d.maxDay) * 100 : 0}%` }} />
                   </div>
                   <span className="bar-day">{DOW[i]}</span>
                 </div>
@@ -236,7 +253,7 @@ function Gauge({ pct }: { pct: number }) {
       <svg viewBox="0 0 200 118" className="chart-svg">
         <path d="M20 108 A80 80 0 0 1 180 108" fill="none" stroke="var(--series-2)" strokeWidth="18" strokeLinecap="round" strokeDasharray="4 9" />
         <path d="M20 108 A80 80 0 0 1 180 108" fill="none" stroke="url(#og)" strokeWidth="18" strokeLinecap="round" strokeDasharray={`${(pct / 100) * L} ${L}`} />
-        <defs><linearGradient id="og" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#ff7a45" /><stop offset="1" stopColor="#FF5A1F" /></linearGradient></defs>
+        <defs><linearGradient id="og" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="var(--ink-2)" /><stop offset="1" stopColor="var(--ink)" /></linearGradient></defs>
         <text x="100" y="96" textAnchor="middle" fontSize="30" fontWeight="800" fill="var(--ink)">{pct}%</text>
         <text x="100" y="112" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--ink-soft)">Completed</text>
       </svg>

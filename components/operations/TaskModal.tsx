@@ -18,7 +18,7 @@ function fmtWhen(iso: string) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
+const STATE_DOT: Record<string, string> = { not_started: "#c7c9ba", in_progress: "var(--accent-deep)", waiting: "#9a9c8f", blocked: "var(--down)", done: "var(--ink)" };
 
 export default function TaskModal({
   task, sections, members, tags, subtasks, defaultSectionId, defaultStart, defaultEnd,

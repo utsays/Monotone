@@ -2,22 +2,22 @@ import type { TaskState, Tag } from "./types";
 
 /** Fallback label colours for the well-known tags (used until a tag has its own colour). */
 export const LABEL_COLORS: Record<string, { bg: string; fg: string }> = {
-  Content: { bg: "#ffe7dd", fg: "#e64a12" },
-  Learn: { bg: "#f2f3f5", fg: "#5a5f66" },
-  Make: { bg: "#ffddca", fg: "#c4381a" },
-  Website: { bg: "#ffe7dd", fg: "#FF5A1F" },
-  Research: { bg: "#eceef0", fg: "#6b7079" },
-  Sales: { bg: "#ffe7dd", fg: "#e64a12" },
-  Brand: { bg: "#f2f3f5", fg: "#5a5f66" },
-  Offer: { bg: "#ffddca", fg: "#c4381a" },
-  Design: { bg: "#f2f3f5", fg: "#5a5f66" },
-  Ops: { bg: "#eceef0", fg: "#6b7079" },
+  Content: { bg: "#f3e4dd", fg: "#a24a2f" },
+  Learn: { bg: "#eef0e7", fg: "#4a4c44" },
+  Make: { bg: "#eef7d6", fg: "#5c7a17" },
+  Website: { bg: "#e6eaee", fg: "#445468" },
+  Research: { bg: "#eef0e7", fg: "#4a4c44" },
+  Sales: { bg: "#f3e4dd", fg: "#a24a2f" },
+  Brand: { bg: "#efe6ec", fg: "#6b4a63" },
+  Offer: { bg: "#eef7d6", fg: "#5c7a17" },
+  Design: { bg: "#e6eaee", fg: "#445468" },
+  Ops: { bg: "#e5ece9", fg: "#3f6b60" },
 };
 
-/** Palette users pick from when creating a tag (orange + neutrals only). */
+/** Palette users pick from when creating a tag — a restrained Swiss information set (flat, muted, no neon). */
 export const TAG_PALETTE = [
-  "#FF5A1F", "#e64a12", "#c4381a", "#ff7a45",
-  "#8b9099", "#6b7079", "#43464b", "#1b1c1f",
+  "#121210", "#5c7a17", "#445468", "#a24a2f",
+  "#6b4a63", "#3f6b60", "#8b8d80", "#43443c",
 ];
 
 export function labelColor(name: string) {
@@ -36,7 +36,7 @@ function hexToSoft(hex: string) {
 }
 
 /** Deterministic avatar colour for a member, from their name. */
-const AVATAR_COLORS = ["#FF5A1F", "#e64a12", "#c4381a", "#43464b", "#1b1c1f", "#7a6a5f", "#8b9099", "#b5451f"];
+const AVATAR_COLORS = ["#121210", "#5c7a17", "#445468", "#a24a2f", "#6b4a63", "#3f6b60", "#8b8d80", "#43443c"];
 export function avatarColor(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
@@ -56,9 +56,9 @@ export const STATES: { key: TaskState; label: string }[] = [
 /** Task priority. Stored in the legacy `tasks.priority` text column; "none"/null = unset. */
 export type Priority = "none" | "low" | "medium" | "high";
 export const PRIORITIES: { key: Exclude<Priority, "none">; label: string; color: string }[] = [
-  { key: "high", label: "High", color: "#c4381a" },
-  { key: "medium", label: "Medium", color: "#FF5A1F" },
-  { key: "low", label: "Low", color: "#8b9099" },
+  { key: "high", label: "High", color: "#b3452e" },
+  { key: "medium", label: "Medium", color: "#5c7a17" },
+  { key: "low", label: "Low", color: "#8b8d80" },
 ];
 export function priorityMeta(p?: string | null) {
   return PRIORITIES.find((x) => x.key === p) ?? null;

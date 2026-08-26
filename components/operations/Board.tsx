@@ -26,7 +26,7 @@ import type { Project, Section, Task, Subtask, Member, Tag, TaskState, TaskComme
 type ViewMode = "board" | "list" | "calendar";
 
 const UNSORTED = "__unsorted__";
-const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
+const STATE_DOT: Record<string, string> = { not_started: "#c7c9ba", in_progress: "var(--accent-deep)", waiting: "#9a9c8f", blocked: "var(--down)", done: "var(--ink)" };
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const DUE_SOON_DAYS = 3;
 const soonStr = () => { const d = new Date(); d.setDate(d.getDate() + DUE_SOON_DAYS); return d.toISOString().slice(0, 10); };
@@ -706,13 +706,13 @@ function BoardInner() {
 // ---------------- Preview board (local no-auth sample data) ----------------
 function pvIso(offset: number) { const d = new Date(); d.setDate(d.getDate() + offset); return d.toISOString().slice(0, 10); }
 const PV_MEMBERS: Member[] = [
-  { id: "m1", project_id: null, name: "Uzair Tariq", email: null, avatar_url: null, avatar_color: "#FF5A1F", user_id: null, active: true, role: null, created_at: "" },
-  { id: "m2", project_id: null, name: "Sara Malik", email: null, avatar_url: null, avatar_color: "#1b1c1f", user_id: null, active: true, role: null, created_at: "" },
+  { id: "m1", project_id: null, name: "Uzair Tariq", email: null, avatar_url: null, avatar_color: "#121210", user_id: null, active: true, role: null, created_at: "" },
+  { id: "m2", project_id: null, name: "Sara Malik", email: null, avatar_url: null, avatar_color: "#445468", user_id: null, active: true, role: null, created_at: "" },
 ];
 const PV_TAGS: Tag[] = [
-  { id: "t1", project_id: "p1", name: "Content", color: "#FF5A1F", created_at: "" },
-  { id: "t2", project_id: "p1", name: "Design", color: "#8b9099", created_at: "" },
-  { id: "t3", project_id: "p1", name: "Website", color: "#e64a12", created_at: "" },
+  { id: "t1", project_id: "p1", name: "Content", color: "#a24a2f", created_at: "" },
+  { id: "t2", project_id: "p1", name: "Design", color: "#445468", created_at: "" },
+  { id: "t3", project_id: "p1", name: "Website", color: "#5c7a17", created_at: "" },
 ];
 const pvTask = (p: Partial<Task>): Task => ({ id: "", project_id: "p1", section_id: null, title: "", description: null, state: "not_started", labels: [], assignee_id: null, assignee_ids: [], start_date: null, end_date: null, position: 0, created_at: "", priority: "none", ...p });
 const PV_COLUMNS: { name: string; tasks: Task[] }[] = [

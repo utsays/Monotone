@@ -8,7 +8,7 @@ import Select from "@/components/Select";
 import { STATES, tagChip, labelColor, priorityMeta } from "@/lib/ops";
 import type { Task, Member, Tag, TaskState } from "@/lib/types";
 
-const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
+const STATE_DOT: Record<string, string> = { not_started: "#c7c9ba", in_progress: "var(--accent-deep)", waiting: "#9a9c8f", blocked: "var(--down)", done: "var(--ink)" };
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const dueSoonStr = () => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toISOString().slice(0, 10); };
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
