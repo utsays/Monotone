@@ -26,7 +26,7 @@ import type { Project, Section, Task, Subtask, Member, Tag, TaskState, TaskComme
 type ViewMode = "board" | "list" | "calendar";
 
 const UNSORTED = "__unsorted__";
-const STATE_DOT: Record<string, string> = { not_started: "#b8bcc2", in_progress: "#FF5A1F", waiting: "#7a7f87", blocked: "#c4381a", done: "#1b1c1f" };
+const STATE_DOT: Record<string, string> = { not_started: "#c7c9ba", in_progress: "var(--accent-deep)", waiting: "#9a9c8f", blocked: "var(--down)", done: "var(--ink)" };
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const DUE_SOON_DAYS = 3;
 const soonStr = () => { const d = new Date(); d.setDate(d.getDate() + DUE_SOON_DAYS); return d.toISOString().slice(0, 10); };
@@ -70,8 +70,7 @@ function isMissing(err: { code?: string; message?: string } | null) {
 }
 
 export default function Board() {
-  if (!isSupabaseConfigured())
-    return <div className="card"><div className="empty"><h4>Connect Supabase to use the board</h4><p className="muted">This module saves to your cloud database.</p></div></div>;
+  if (!isSupabaseConfigured()) return <PreviewBoard />;
   return <BoardInner />;
 }
 
@@ -699,6 +698,89 @@ function BoardInner() {
             </div>
           </div>
         </div>
+      )}
+    </>
+  );
+}
+
+// ---------------- Preview board (local no-auth sample data) ----------------
+function pvIso(offset: number) { const d = new Date(); d.setDate(d.getDate() + offset); return d.toISOString().slice(0, 10); }
+const PV_MEMBERS: Member[] = [
+  { id: "m1", project_id: null, name: "Uzair Tariq", email: null, avatar_url: null, avatar_color: "#121210", user_id: null, active: true, role: null, created_at: "" },
+  { id: "m2", project_id: null, name: "Sara Malik", email: null, avatar_url: null, avatar_color: "#445468", user_id: null, active: true, role: null, created_at: "" },
+];
+const PV_TAGS: Tag[] = [
+  { id: "t1", project_id: "p1", name: "Content", color: "#a24a2f", created_at: "" },
+  { id: "t2", project_id: "p1", name: "Design", color: "#445468", created_at: "" },
+  { id: "t3", project_id: "p1", name: "Website", color: "#5c7a17", created_at: "" },
+];
+const pvTask = (p: Partial<Task>): Task => ({ id: "", project_id: "p1", section_id: null, title: "", description: null, state: "not_started", labels: [], assignee_id: null, assignee_ids: [], start_date: null, end_date: null, position: 0, created_at: "", priority: "none", ...p });
+const PV_COLUMNS: { name: string; tasks: Task[] }[] = [
+  { name: "Backlog", tasks: [
+    pvTask({ id: "a1", title: "Define brand positioning & tone", labels: ["Content"], priority: "high", assignee_ids: ["m1"], start_date: pvIso(-1), end_date: pvIso(2) }),
+    pvTask({ id: "a2", title: "Collect competitor references", labels: ["Design"], priority: "low", assignee_ids: ["m2"], end_date: pvIso(9) }),
+  ] },
+  { name: "In progress", tasks: [
+    pvTask({ id: "b1", title: "Homepage wireframe", state: "in_progress", labels: ["Website", "Design"], priority: "medium", assignee_ids: ["m1", "m2"], start_date: pvIso(-3), end_date: pvIso(-1) }),
+    pvTask({ id: "b2", title: "Write hero + services copy", state: "in_progress", labels: ["Content"], priority: "high", assignee_ids: ["m2"], start_date: pvIso(-2), end_date: pvIso(3) }),
+  ] },
+  { name: "Done", tasks: [
+    pvTask({ id: "c1", title: "Finalize colour system", state: "done", labels: ["Design"], assignee_ids: ["m1"], start_date: pvIso(-8), end_date: pvIso(-5) }),
+  ] },
+];
+
+function PreviewBoard() {
+  const [open, setOpen] = useState<Task | null>(null);
+  const [view, setView] = useState<ViewMode>("board");
+  const memberMap = Object.fromEntries(PV_MEMBERS.map((m) => [m.id, m]));
+  const tagByName = Object.fromEntries(PV_TAGS.map((t) => [t.name.toLowerCase(), t]));
+  const noop = () => {};
+  const allTasks = PV_COLUMNS.flatMap((c) => c.tasks);
+  return (
+    <>
+      <div className="ops-bar">
+        <div className="proj-tabs">
+          <button className="proj-tab active"><span className="cdot" /> Agency Launch</button>
+          <button className="proj-tab">+ New project</button>
+        </div>
+        <div className="ops-tools">
+          <div className="view-toggle">
+            <button className={view === "board" ? "active" : ""} onClick={() => setView("board")}><Icon name="grid" size={15} /> Board</button>
+            <button className={view === "list" ? "active" : ""} onClick={() => setView("list")}><Icon name="list" size={15} /> List</button>
+            <button className={view === "calendar" ? "active" : ""} onClick={() => setView("calendar")}><Icon name="calendar" size={15} /> Calendar</button>
+          </div>
+          <label className="mini-search"><Icon name="search" size={16} /><input placeholder="Search tasks" readOnly /></label>
+          <button className="tool-btn"><Icon name="users" size={16} /> Members</button>
+        </div>
+      </div>
+      {view === "list" ? (
+        <ListView groups={PV_COLUMNS.map((c) => ({ id: c.name, name: c.name, tasks: c.tasks }))}
+          memberMap={memberMap} tagByName={tagByName} onOpenTask={setOpen} onQuickState={noop} onDateChange={noop} onAddTask={noop} />
+      ) : view === "calendar" ? (
+        <TaskCalendar tasks={allTasks} onOpenTask={setOpen} onCreateOnDay={noop} onReschedule={noop} />
+      ) : (
+      <div className="board">
+        {PV_COLUMNS.map((col) => (
+          <div key={col.name} className="col">
+            <div className="col-head"><span className="sec-title"><span className="nm">{col.name}</span><span className="cnt">{col.tasks.length}</span></span></div>
+            <div className="col-body">
+              {col.tasks.map((t) => (
+                <div key={t.id} onClick={() => setOpen(t)}>
+                  <CardBody task={t} memberMap={memberMap} tagByName={tagByName} sub={{ total: 0, done: 0 }} onQuickState={noop} onDateChange={noop} />
+                </div>
+              ))}
+            </div>
+            <button className="col-add">+ Add task</button>
+          </div>
+        ))}
+      </div>
+      )}
+      {open && (
+        <TaskModal task={open} sections={[{ id: "s1", project_id: "p1", name: "Backlog", position: 0, created_at: "" }]}
+          members={PV_MEMBERS} tags={PV_TAGS} subtasks={[]} defaultSectionId="s1"
+          onClose={() => setOpen(null)} onSave={() => setOpen(null)}
+          onAddSubtask={() => {}} onUpdateSubtask={() => {}} onDeleteSubtask={() => {}} onCreateTag={() => {}}
+          comments={[]} memberMap={memberMap} myMemberId="m1" onAddComment={() => {}} onDeleteComment={() => {}} />
       )}
     </>
   );

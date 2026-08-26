@@ -230,7 +230,7 @@ const PATHS: Record<string, JSX.Element> = {
 export default function Icon({
   name,
   size = 22,
-  strokeWidth = 1.8,
+  strokeWidth = 2,
   className,
 }: {
   name: keyof typeof PATHS | string;

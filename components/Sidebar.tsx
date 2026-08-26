@@ -8,7 +8,7 @@ import Logo from "./Logo";
 
 const MENU = [
   { href: "/overview", label: "Dashboard", icon: "grid" },
-  { href: "/operations", label: "Tasks", icon: "box", badge: "12+" },
+  { href: "/operations", label: "Tasks", icon: "box" },
   { href: "/projects", label: "Projects", icon: "folder" },
   { href: "/calendar", label: "Calendar", icon: "calendar" },
   { href: "/team", label: "Team", icon: "users" },
@@ -28,7 +28,7 @@ export default function Sidebar() {
     const active = pathname === n.href;
     return (
       <Link key={n.href} href={n.href} className={`nav-item${active ? " active" : ""}`} onClick={() => setOpen(false)}>
-        <Icon name={n.icon} strokeWidth={active ? 2 : 1.8} />
+        <Icon name={n.icon} strokeWidth={active ? 2.3 : 2} />
         {n.label}
         {n.badge && <span className="nbadge">{n.badge}</span>}
       </Link>
@@ -53,13 +53,6 @@ export default function Sidebar() {
         {GENERAL.map(item)}
 
         <div className="nav-spacer" />
-
-        <div className="promo">
-          <span className="go"><Icon name="users" size={18} /></span>
-          <h5>Invite your team</h5>
-          <p>Add people and assign work together.</p>
-          <Link href="/team" className="promo-btn" onClick={() => setOpen(false)}>Add members</Link>
-        </div>
       </aside>
     </>
   );
